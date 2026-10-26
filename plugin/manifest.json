@@ -1,0 +1,67 @@
+{
+  "manifestVersion": 5,
+  "id": "com.nasaat.pngrelay",
+  "name": "Photoshop Tool",
+  "version": "0.3.0",
+  "main": "main.js",
+  "host": {
+    "app": "PS",
+    "minVersion": "26.9.0",
+    "data": {
+      "apiVersion": 2,
+      "enableMenuRecording": true
+    }
+  },
+  "requiredPermissions": {
+    "localFileSystem": "request"
+  },
+  "entrypoints": [
+    {
+      "type": "panel",
+      "id": "relayPanel",
+      "label": {
+        "default": "Photoshop Tool"
+      },
+      "minimumSize": {
+        "width": 192,
+        "height": 140
+      },
+      "preferredDockedSize": {
+        "width": 240,
+        "height": 158
+      },
+      "preferredFloatingSize": {
+        "width": 252,
+        "height": 168
+      }
+    },
+    {
+      "type": "command",
+      "id": "exportCopy",
+      "label": {
+        "default": "Export PNG + Copy"
+      }
+    },
+    {
+      "type": "command",
+      "id": "selectionSmart",
+      "label": {
+        "default": "Selection to Smart Object + PNG + Copy"
+      }
+    },
+    {
+      "type": "command",
+      "id": "exportPngOnly",
+      "label": {
+        "default": "Export PNG Only"
+      }
+    },
+    {
+      "type": "command",
+      "id": "copyImageOnly",
+      "label": {
+        "default": "Copy Image Only"
+      }
+    }
+  ]
+}
