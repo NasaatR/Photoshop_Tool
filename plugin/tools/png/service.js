@@ -6,7 +6,7 @@ const { canonical } = require('../../core/output-access.js');
 function createPNGService(host, resolveFolder) {
   const roots = new Map();
   const { app, C } = host;
-  async function close(ctx, doc, warn) { try { await host.close(ctx, doc); } catch (e) { warn('Temporary document cleanup failed: ' + e.message); } }
+  async function close(ctx, doc, warn) { try { await host.close(ctx, doc); } catch (e) { warn('Temporary document cleanup failed: ' + e.message, e); } }
   async function prepareCopy(doc, options) {
     doc.activeChannels = doc.componentChannels;
     await doc.selection.deselect();
@@ -56,7 +56,7 @@ function createPNGService(host, resolveFolder) {
     } finally {
       for (const doc of [reopened, scratch]) await close(ctx, doc, warn);
       // A successful or uncertain move must never cause deletion of a final PNG.
-      if (stage && !committed && stage.name === stagingName) try { await stage.delete(); } catch (_) { warn('A temporary PNG may remain beside the PSD.'); }
+      if (stage && !committed && stage.name === stagingName) try { await stage.delete(); } catch (e) { warn('A temporary PNG may remain beside the PSD.', e); }
     }
   }
   async function copyOnly(ctx, source, job) {
@@ -78,12 +78,16 @@ function createPNGService(host, resolveFolder) {
   return { async run(mode, job) {
     if (!['document', 'selection', 'save', 'copy'].includes(mode)) throw new Error('Unknown PNG operation: ' + mode);
     const copy = mode !== 'save';
-    const source = app.activeDocument; host.validate(source, copy);
+    const source = app.activeDocument;
+    job.record.host = app.version; job.record.mode = mode;
+    if (source) job.record.source = { id: source.id, ...dimensions(source), mode: source.mode, savedLocally: !!source.path,
+      activeLayerIDs: source.activeLayers.map(layer => layer.id), selection: !!source.selection.bounds };
+    host.validate(source, copy);
     const sourceID = source.id;
     const selection = mode === 'selection' ? validateSelection(source) : null;
     const root = mode === 'copy' ? null : roots.get(sourceID) || location(source.path);
     const folder = root ? await resolveFolder(root, job.progress) : null;
-    job.record.host = app.version;
+    job.progress('Waiting for Photoshop…');
     await host.modal('Photoshop Tool: ' + (selection ? 'Selection to Smart Object' : mode === 'copy' ? 'Copy Image' : 'Export PNG'), async ctx => {
       if (!app.activeDocument || app.activeDocument.id !== sourceID) throw new Error('The active document changed. Run the tool again on the intended document.');
       host.validate(source, copy);
@@ -92,9 +96,10 @@ function createPNGService(host, resolveFolder) {
         if (mode === 'copy') return await copyOnly(ctx, source, job);
         if (selection) {
           const current = validateSelection(source);
-          if (current.layer !== selection.layer || current.bounds !== selection.bounds) throw new Error('Layer or selection changed while granting access. Run the tool again.');
+          if (current.layer !== selection.layer || current.bounds !== selection.bounds) throw new Error('Layer or selection changed while preparing the export. Run the tool again.');
           let content, targetName;
           await withHistory(ctx, sourceID, 'Photoshop Tool: Selection to Smart Object', async () => {
+            job.progress('Creating Smart Object from selection…');
             host.cancel(ctx); await host.batch({ _obj: 'copyToLayer' });
             const copied = source.activeLayers[0];
             if (!copied || copied.id === selection.layer) throw new Error('Layer via Copy did not create a layer.');
@@ -116,7 +121,7 @@ function createPNGService(host, resolveFolder) {
           await exportImage(ctx, content, mapped, targetName, folder, true, job);
         } else await exportImage(ctx, source, root, root.base + '.png', folder, copy, job);
       } finally {
-        if (!ctx.isCancelled && host.byID(finishOn)) try { await host.select(finishOn); } catch (e) { job.warn('Could not restore document focus: ' + e.message); }
+        if (!ctx.isCancelled && host.byID(finishOn)) try { await host.select(finishOn); } catch (e) { job.warn('Could not restore document focus: ' + e.message, e); }
       }
     });
   } };

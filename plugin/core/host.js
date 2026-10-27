@@ -11,7 +11,7 @@ async function withHistory(ctx, documentID, name, work, warn) {
   let value, error, failed = false;
   try { value = await work(); } catch (e) { failed = true; error = e; }
   try { await ctx.hostControl.resumeHistory(id, !failed); }
-  catch (e) { if (!failed) throw e; try { warn('History cleanup failed: ' + String(e.message || e)); } catch (_) {} }
+  catch (e) { if (!failed) throw e; try { warn('History cleanup failed: ' + String(e.message || e), e); } catch (_) {} }
   if (failed) throw error; return value;
 }
 function createHost(ps) {

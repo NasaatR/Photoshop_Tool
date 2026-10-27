@@ -20,10 +20,10 @@ async function commitOutput(folder, stage, name, overwrite, cancel, warn) {
   catch (primary) {
     if (backup) {
       try { await backup.moveTo(folder, { newName: name, overwrite: false }); }
-      catch (_) { warn('Previous PNG retained as ' + backup.name + '. Restore it manually before retrying.'); }
+      catch (e) { warn('Previous PNG retained as ' + backup.name + '. Restore it manually before retrying.', e); }
     }
     throw primary;
   }
-  if (backup) try { await backup.delete(); } catch (_) { warn('Previous PNG backup retained: ' + backup.name); }
+  if (backup) try { await backup.delete(); } catch (e) { warn('Previous PNG backup retained: ' + backup.name, e); }
 }
 module.exports = { findEntry, commitOutput };

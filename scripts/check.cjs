@@ -10,7 +10,8 @@ for (const file of walk(plugin)) {
   if (file.endsWith('.js')) {
     cp.execFileSync(process.execPath, ['--check', file]);
     const text = fs.readFileSync(file, 'utf8');
-    assert.doesNotMatch(text, /\b(?:eval|fetch|XMLHttpRequest|WebSocket)\s*\(|new\s+Function\s*\(|child_process|navigator\.clipboard/);
+    assert.doesNotMatch(text, /\b(?:eval|fetch|XMLHttpRequest|WebSocket)\s*\(|new\s+Function\s*\(|child_process/);
+    assert.doesNotMatch(text, /\b(?:clipboard\.(?:read|readText|getContent|clearContent)|getFolder)\s*\(/);
     for (const [, name] of text.matchAll(/require\(['"]([^'"]+)['"]\)/g)) {
       if (name.startsWith('.')) assert.ok(fs.existsSync(path.resolve(path.dirname(file), name)), 'Missing module: ' + name);
       else assert.ok(['photoshop', 'uxp'].includes(name), 'Node/browser module in UXP source: ' + name);

@@ -35,6 +35,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     return el;
   }
   const root = make('div', null, { id: 'photoshoptool' }); root.appendChild(make('style', CSS));
+  const scroll = make('div', null, { class: 'pt-scroll' }); root.appendChild(scroll);
   const toolbar = make('div', null, { class: 'pt-toolbar' }), actions = make('div', null, { class: 'pt-actions' });
   tools.forEach(tool => {
     const node = control(tool.id, null, () => handlers.run(tool.id), 'pt-action', tool.description || tool.title);
@@ -46,14 +47,16 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   const options = make('div', null, { id: 'options' }); options.hidden = true;
   const gear = control('settings', null, () => setOptions(options.hidden), 'pt-small', 'Options'); gear.appendChild(icon(doc, 'settings'));
   gear.setAttribute('aria-expanded', 'false'); gear.setAttribute('aria-controls', 'options');
-  append(utilities, [labelToggle, gear]); toolbar.appendChild(utilities); root.appendChild(toolbar);
-  const scroll = make('div', null, { class: 'pt-scroll' }); root.appendChild(scroll);
+  append(utilities, [labelToggle, gear]); toolbar.appendChild(utilities); scroll.appendChild(toolbar);
   const status = control('status', null, () => {
     details.hidden = !details.hidden; status.setAttribute('aria-expanded', String(!details.hidden));
   }, 'pt-status', 'Show operation details');
   status.className = 'pt-status'; status.appendChild(make('span', 'Ready', { id: 'statusText', class: 'pt-status-text', role: 'status', 'aria-live': 'polite' }));
   const details = make('div', '', { id: 'details', class: 'pt-detail' }); details.hidden = true;
-  append(scroll, [status, details]);
+  const statusRow = make('div', null, { class: 'pt-status-row' });
+  const copyLog = control('copyReport', null, handlers.copyReport, 'pt-small', 'Copy diagnostic report to clipboard'); copyLog.appendChild(icon(doc, 'copy'));
+  append(statusRow, [status, copyLog]);
+  append(scroll, [statusRow, details, make('p', '', { id: 'reportStatus', class: 'pt-hint', role: 'status', 'aria-live': 'polite' })]); elements.reportStatus.hidden = true;
   const external = control('external', 'Enable external paste', handlers.external, 'pt-text', 'Enable Photoshop Export Clipboard'); external.hidden = true;
   append(scroll, [external, options]);
   function heading(text) { options.appendChild(make('div', text, { class: 'pt-heading' })); }
@@ -88,10 +91,11 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     'PNG + Copy exports the full canvas beside the PSD. Smart Object extracts one selected pixel layer and leaves its contents open.',
     'PNG only keeps the clipboard unchanged. Copy only writes no PNG and works without a saved PSD.',
     'Full resolution · RGB / Grayscale · 8 / 16 bit. The source PSD is not automatically saved.',
-    'Folder access is requested once per PSD folder. Native image paste depends on the receiving application.'
+    'PNG files go beside the project automatically. Native image paste depends on the receiving application.',
+    'Copy report replaces the clipboard with diagnostic text. Reports contain filenames, the last eight operations and recent session events. Nothing is sent automatically.'
   ].forEach(text => help.appendChild(make('p', text, { class: 'pt-hint' })));
-  help.appendChild(control('report', 'Save diagnostic report', handlers.report, 'pt-text', 'Save a local text report'));
-  help.appendChild(make('p', '', { id: 'reportStatus', class: 'pt-hint' }));
+  help.appendChild(control('copyReportHelp', 'Copy report', handlers.copyReport, 'pt-text', 'Copy a text report for sharing'));
+  help.appendChild(control('report', 'Save report .txt', handlers.report, 'pt-text', 'Save a local text report'));
   root.appendChild(make('div', 'Made by Nasaat', { class: 'pt-footer' }));
   root.addEventListener('keydown', e => { if (e.key === 'Escape' && !options.hidden) { e.preventDefault(); setOptions(false); if (gear.focus) gear.focus(); } });
   function setOptions(open) { options.hidden = !open; gear.setAttribute('aria-expanded', String(open)); }
@@ -108,9 +112,11 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   updateVisibility(); applyAppearance({}, true);
   return { root, elements, appearance: () => ({ ...appearance }), visibility: () => ({ ...visibility }),
     values: () => ({ overwrite: elements.overwrite.checked, srgb: elements.srgb.checked, compression: String(compression.value) }),
+    reportStatus(text) { elements.reportStatus.textContent = text; elements.reportStatus.hidden = !text; },
     status(text, state, needsExternal) {
       if (text !== statusText || state !== statusState) {
         statusText = text; statusState = state; elements.statusText.textContent = String(text).split('\n')[0];
+        elements.reportStatus.hidden = true;
         details.textContent = text; status.setAttribute('title', text); status.setAttribute('data-state', state);
         if (state === 'error') details.hidden = false;
         status.setAttribute('aria-expanded', String(!details.hidden));
@@ -118,7 +124,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
       if (needsExternal !== externalState) { external.hidden = !needsExternal; externalState = needsExternal; }
     },
     disable(value) {
-      [...tools.map(t => t.id), 'external', 'report'].forEach(id => controls[id](value));
+      [...tools.map(t => t.id), 'external', 'report', 'copyReport', 'copyReportHelp'].forEach(id => controls[id](value));
       for (const id of ['overwrite', 'srgb', 'compression']) if (elements[id].disabled !== value) elements[id].disabled = value;
     }
   };

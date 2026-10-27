@@ -4,7 +4,7 @@ module.exports = `
  --bg:var(--uxp-host-background-color,#252525); --fg:var(--uxp-host-text-color,#e3e3e3);
  --muted:var(--uxp-host-text-color-secondary,#aaa); --border:var(--uxp-host-border-color,#505050);
  --hover:var(--uxp-host-widget-hover-background-color,#3c3c3c); --size:42px; --radius:0px;
- box-sizing:border-box; display:flex; flex-direction:column; width:100%; height:100%; min-height:0;
+ box-sizing:border-box; display:flex; flex-direction:column; flex:1; width:100%; height:100%; min-width:0; min-height:0;
  padding:8px; margin:0; overflow:hidden; background-color:var(--bg); color:var(--fg); font-size:12px; font-family:system-ui,sans-serif;
 }
 #photoshoptool * {box-sizing:border-box;}
@@ -14,7 +14,7 @@ module.exports = `
 #photoshoptool.pt-roomy {--size:48px;}
 #photoshoptool.pt-soft {--radius:4px;}
 #photoshoptool .pt-toolbar {display:flex;align-items:flex-start;flex-shrink:0;min-width:0;}
-#photoshoptool .pt-actions {display:flex;flex-wrap:wrap;min-width:0;flex:1;max-height:calc(100vh - 68px);overflow-y:auto;}
+#photoshoptool .pt-actions {display:flex;flex-wrap:wrap;min-width:0;flex:1;}
 #photoshoptool .pt-control {display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid var(--border);border-radius:var(--radius);background-color:transparent;color:var(--fg);padding:0;margin:0;cursor:pointer;outline:none;}
 #photoshoptool .pt-control:hover {background-color:var(--hover);}
 #photoshoptool .pt-control:focus {border-color:var(--fg);outline:1px solid var(--fg);outline-offset:1px;}
@@ -28,8 +28,9 @@ module.exports = `
 #photoshoptool .pt-caption {display:none;}
 #photoshoptool.pt-labels .pt-action {width:calc(50% - 6px);height:66px;flex-direction:column;padding:4px 2px;}
 #photoshoptool.pt-labels .pt-caption {display:block;margin-top:4px;font-size:10px;line-height:13px;text-align:center;white-space:normal;}
-#photoshoptool .pt-scroll {flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding-top:4px;padding-bottom:5px;}
-#photoshoptool .pt-status {min-height:20px;display:flex;align-items:center;cursor:pointer;}
+#photoshoptool .pt-scroll {flex:1;min-width:0;min-height:0;overflow-y:auto;overflow-x:hidden;padding-bottom:5px;}
+#photoshoptool .pt-status-row {display:flex;align-items:center;min-width:0;}
+#photoshoptool .pt-status {flex:1;min-width:0;min-height:26px;display:flex;align-items:center;cursor:pointer;}
 #photoshoptool .pt-status-text {display:block;max-width:100%;min-width:0;font-size:11px;line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted);padding-bottom:1px;}
 #photoshoptool .pt-detail {font-size:11px;line-height:16px;white-space:pre-wrap;word-wrap:break-word;color:var(--muted);padding:4px 0;}
 #photoshoptool .pt-heading {font-size:11px;font-weight:600;margin:8px 0 5px;}

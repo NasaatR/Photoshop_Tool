@@ -6,8 +6,8 @@ const root = path.resolve(__dirname, '..');
 function createManifest(product, tools) {
   return { manifestVersion: 5, id: product.id, name: product.name, version: product.version, main: 'main.js',
     host: { app: 'PS', minVersion: '26.9.0', data: { apiVersion: 2, enableMenuRecording: true } },
-    requiredPermissions: { localFileSystem: 'request' }, entrypoints: [
-      { type: 'panel', id: 'relayPanel', label: { default: product.name }, minimumSize: { width: 192, height: 140 }, preferredDockedSize: { width: 240, height: 158 }, preferredFloatingSize: { width: 252, height: 168 } },
+    requiredPermissions: { localFileSystem: 'fullAccess', clipboard: 'readAndWrite' }, entrypoints: [
+      { type: 'panel', id: 'relayPanel', label: { default: product.name }, minimumSize: { width: 176, height: 96 }, maximumSize: { width: 4096, height: 4096 }, preferredDockedSize: { width: 240, height: 158 }, preferredFloatingSize: { width: 252, height: 168 } },
       ...tools.map(tool => ({ type: 'command', id: tool.commandId, label: { default: tool.title } }))
     ] };
 }

@@ -4,6 +4,7 @@ const registry = require('../plugin/tools/index.js');
 const { createHost } = require('../plugin/core/host.js');
 const { createPNGService } = require('../plugin/tools/png/service.js');
 const { createRunner } = require('../plugin/core/runner.js');
+const { createOutputAccess } = require('../plugin/core/output-access.js');
 const { normalizeExport } = require('../plugin/core/preferences.js');
 function fixture(fail = {}) {
   const events = [], files = new Map(), autoClose = new Set(), statuses = [];
@@ -21,7 +22,7 @@ function fixture(fail = {}) {
     }
     async delete() { hit('delete'); files.delete(this.name); }
   }
-  const folder = { isFolder: true, async getEntries() { hit('list'); return Array.from(files.values()); }, async createFile(name) { hit('createFile'); return new Entry(name); } };
+  const folder = { isFolder: true, nativePath: 'C:/Art', async getEntries() { hit('list'); return Array.from(files.values()); }, async createFile(name) { hit('createFile'); return new Entry(name); } };
   const app = { documents: [], activeDocument: null, version: 'mock-27.x', preferences: { general: { exportClipboard: true } } };
   function makeDoc(name, path, width = 4096, height = 2160, depth = C.BitsPerChannelType.SIXTEEN) {
     const channel = { kind: C.ChannelType.COMPONENT };
@@ -55,8 +56,9 @@ function fixture(fail = {}) {
     if (c._obj === 'select') app.activeDocument = app.documents.find(d => d.id === c._target[0]._id);
     return [{}];
   } } };
-  const host = createHost(ps), services = { png: createPNGService(host, async root => { hit('folder'); folderCalls++; assert.equal(root.folder, 'C:/Art'); if (fail.folderCancel) throw new Error('Folder access cancelled'); return folder; }) };
-  const runner = createRunner(registry, context => ({ ...context, services }), (...s) => statuses.push(s), '0.3.0');
+  const fs = { async getEntryWithUrl(url) { hit('folder'); folderCalls++; assert.equal(url, 'file:/C:/Art'); if (fail.folderAccess) throw new Error('Access denied'); return folder; }, async getFolder() { assert.fail('PNG tools must not request a folder picker'); } };
+  const host = createHost(ps), services = { png: createPNGService(host, createOutputAccess(fs)) };
+  const runner = createRunner(registry, context => ({ ...context, services }), (...s) => statuses.push(s), '0.3.1');
   return { app, source, C, files, Entry, folder, events, ctx, statuses, runner, services, host, folderCalls: () => folderCalls,
     run: (id = 'png.export-copy', options) => runner.run(id, normalizeExport(options)) };
 }

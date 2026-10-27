@@ -3,7 +3,7 @@ const test = require('node:test'), assert = require('node:assert/strict');
 const { createRegistry } = require('../plugin/core/registry.js');
 const { createRunner } = require('../plugin/core/runner.js');
 const { createPreferences, normalizeExport } = require('../plugin/core/preferences.js');
-const { createOutputAccess } = require('../plugin/core/output-access.js');
+const { createOutputAccess, fileURL } = require('../plugin/core/output-access.js');
 const { withHistory } = require('../plugin/core/host.js');
 const { location, selectionName } = require('../plugin/tools/png/logic.js');
 const definition = (id = 'test.action') => ({ id, commandId: 'testAction', title: 'Test', label: 'Test', icon: 'copy', execute() {} });
@@ -47,25 +47,31 @@ test('history cleanup keeps primary errors, including thrown falsy values', asyn
 });
 function folderFixture(pref = storage()) {
   const folder = { isFolder: true, nativePath: 'C:\\Art', async getEntries() { return []; } }; let picks = 0;
-  const fs = { async getFolder() { picks++; return folder; }, async createPersistentToken() { return 'grant'; }, async getEntryForPersistentToken() { return folder; } };
-  return { folder, fs, pref, resolve: createOutputAccess(fs, pref), picks: () => picks };
+  const urls = [];
+  const fs = { async getFolder() { picks++; throw new Error('Unexpected picker'); }, async getEntryWithUrl(url) { urls.push(url); return folder; } };
+  return { folder, fs, pref, urls, resolve: createOutputAccess(fs, pref), picks: () => picks };
 }
-test('folder capability is reused in memory and after plugin reload', async () => {
+test('project folder resolves directly on first use and after reload without a picker', async () => {
   const f = folderFixture(); assert.equal(await f.resolve({ folder: 'C:/Art' }, () => {}), f.folder); await f.resolve({ folder: 'C:/Art' }, () => {});
-  assert.equal(f.picks(), 1); const reloaded = createOutputAccess(f.fs, f.pref); await reloaded({ folder: 'c:/ART' }, () => {}); assert.equal(f.picks(), 1);
+  const reloaded = createOutputAccess(f.fs, f.pref); await reloaded({ folder: 'c:/ART' }, () => {});
+  assert.deepEqual(f.urls, ['file:/C:/Art', 'file:/C:/Art', 'file:/c:/ART']); assert.equal(f.picks(), 0); assert.equal(f.pref.values.size, 0);
 });
-test('wrong folder and cancelled picker do not store capabilities', async () => {
-  const f = folderFixture(); f.folder.nativePath = 'C:/Other'; await assert.rejects(f.resolve({ folder: 'C:/Art' }, () => {}), /exactly/); assert.equal(f.pref.values.size, 0);
-  f.fs.getFolder = async () => null; await assert.rejects(f.resolve({ folder: 'C:/Art' }, () => {}), /cancelled/);
+test('wrong or inaccessible project folder fails with its cause and never launches a picker', async () => {
+  const f = folderFixture(); f.folder.nativePath = 'C:/Other';
+  await assert.rejects(f.resolve({ folder: 'C:/Art' }, () => {}), e => /Cannot access/.test(e.message) && /different location/.test(e.cause.message));
+  const cause = Object.assign(new Error('Access denied'), { number: -42 }); f.fs.getEntryWithUrl = async () => { throw cause; };
+  await assert.rejects(f.resolve({ folder: 'C:/Art' }, () => {}), e => e.cause === cause); assert.equal(f.picks(), 0);
 });
-test('revoked or moved grants are never used for a different folder', async () => {
-  const f = folderFixture(); await f.resolve({ folder: 'C:/Art' }, () => {}); f.folder.nativePath = 'C:/Moved';
-  const current = { isFolder: true, nativePath: 'C:/Art', getEntries: async () => [] }; f.fs.getFolder = async () => current;
-  assert.equal(await f.resolve({ folder: 'C:/Art' }, () => {}), current);
+test('new project locations are resolved again and old token preferences stay untouched', async () => {
+  const pref = storage({ 'pngrelay.outputAccess.v1': { schema: 1, folders: { 'c:/art': 'old-token' } } }), f = folderFixture(pref);
+  const before = pref.getItem('pngrelay.outputAccess.v1'); await f.resolve({ folder: 'C:/Art' }, () => {});
+  f.folder.nativePath = 'D:/Moved'; await f.resolve({ folder: 'D:/Moved' }, () => {});
+  assert.equal(f.urls[1], 'file:/D:/Moved'); assert.equal(pref.getItem('pngrelay.outputAccess.v1'), before);
 });
-test('failed persistence of a capability is reported before operation starts', async () => {
-  const f = folderFixture(); f.pref.setItem = () => { throw new Error('Storage full'); };
-  await assert.rejects(f.resolve({ folder: 'C:/Art' }, () => {}), /Storage full/);
+test('UXP path conversion preserves native Unicode, spaces, percent and hash; supports drive root and UNC', () => {
+  assert.equal(fileURL('C:\\Проекты\\100% #1'), 'file:/C:/Проекты/100% #1');
+  assert.equal(fileURL('C:'), 'file:/C:/'); assert.equal(fileURL('\\\\server\\share\\Art'), 'file://server/share/Art');
+  assert.throws(() => fileURL('../Art'), /absolute/); assert.throws(() => fileURL('cloud:id'), /absolute/);
 });
 test('copy-only option handling ignores unrelated invalid PNG compression', () => {
   const registry = require('../plugin/tools/index.js');

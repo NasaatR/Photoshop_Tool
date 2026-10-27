@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.1
+
+- Set an explicit independent panel size range (176×96–4096×4096), remove viewport-height coupling and place content/settings/report controls in one scroll body.
+- Restore automatic PNG export beside the saved PSD/PSB with no folder picker. Declare fullAccess and resolve/verify the intended project folder directly before modal work; old settings remain untouched.
+- Add one-click Copy report beside the operation status and in Help & report, plus Save report .txt. Declare the UXP clipboard write permission; never read clipboard data.
+- Capture the last eight operations/100 session events, timed steps, source/options context, option-validation failures, partial effects, nested errors and separate cleanup failures. Redact absolute local paths in shared reports and report export failures honestly.
+- Add mocked regression coverage for the requested workflows. Native Photoshop resize, filesystem and clipboard acceptance remain to be checked on Windows.
+
 ## 0.3.0
 
 - Establish Photoshop Tool as a modular successor to PNG Relay, retaining plugin/menu IDs and local preference/folder keys.

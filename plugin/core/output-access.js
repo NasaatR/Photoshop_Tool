@@ -1,30 +1,25 @@
 'use strict';
-const KEY = 'pngrelay.outputAccess.v1';
 const canonical = path => String(path || '').replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
-function createOutputAccess(fs, storage) {
-  const remembered = new Map();
-  let saved = { schema: 1, folders: {} };
-  try { const r = JSON.parse(storage.getItem(KEY) || 'null'); if (r && r.schema === 1 && r.folders && typeof r.folders === 'object' && !Array.isArray(r.folders)) saved = r; } catch (_) {}
+function fileURL(nativePath) {
+  const path = String(nativePath || '').replace(/\\/g, '/');
+  // UXP filesystem URLs accept native path characters; do not web-encode them.
+  if (/^[A-Za-z]:(?:\/|$)/.test(path)) return 'file:/' + path + (path.length === 2 ? '/' : '');
+  if (/^\/\/[^/]+\/[^/]+/.test(path) || /^\/(?!\/)/.test(path)) return 'file:' + path;
+  throw new Error('The project folder must have an absolute local path.');
+}
+function createOutputAccess(fs) {
   return async (root, progress) => {
-    const expected = canonical(root.folder);
-    const verify = async folder => {
-      if (!folder || !folder.isFolder || canonical(folder.nativePath) !== expected) throw new Error('Folder moved or inaccessible.');
-      await folder.getEntries(); return folder;
-    };
-    if (remembered.has(expected)) {
-      try { return await verify(remembered.get(expected)); } catch (_) { remembered.delete(expected); }
+    progress('Opening the project folder…');
+    try {
+      const folder = await fs.getEntryWithUrl(fileURL(root.folder));
+      if (!folder || !folder.isFolder || canonical(folder.nativePath) !== canonical(root.folder)) throw new Error('Project folder is missing or resolves to a different location.');
+      await folder.getEntries();
+      return folder;
+    } catch (cause) {
+      const error = new Error('Cannot access the project folder. Check that it exists and is accessible, and that the plugin update was granted file access.');
+      error.cause = cause;
+      throw error;
     }
-    if (typeof saved.folders[expected] === 'string') {
-      try { const folder = await verify(await fs.getEntryForPersistentToken(saved.folders[expected])); remembered.set(expected, folder); return folder; } catch (_) {}
-    }
-    progress('Choose this PSD folder once:\n' + root.folder);
-    const folder = await fs.getFolder();
-    if (!folder) throw new Error('Folder access cancelled. Nothing was exported.');
-    if (!folder.isFolder || canonical(folder.nativePath) !== expected) throw new Error('Choose the PSD folder exactly: ' + root.folder);
-    await folder.getEntries();
-    const token = await fs.createPersistentToken(folder);
-    const next = { schema: 1, folders: { ...saved.folders, [expected]: token } };
-    storage.setItem(KEY, JSON.stringify(next)); saved = next; remembered.set(expected, folder); return folder;
   };
 }
-module.exports = { createOutputAccess, canonical };
+module.exports = { createOutputAccess, canonical, fileURL };

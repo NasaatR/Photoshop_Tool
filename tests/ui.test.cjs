@@ -16,7 +16,7 @@ class Element {
 const makeDocument = () => { const d = { createElement: tag => new Element(tag, d), createElementNS: (_, tag) => new Element(tag, d) }; return d; };
 function panel(overrides = {}) {
   let runs = [];
-  const view = createPanel(makeDocument(), registry.list(), normalizeExport(null), normalizeAppearance(null), {}, { run: id => runs.push(id), external() {}, report() {}, draft() {}, changed() {}, appearance() {}, visibility() {}, ...overrides }, '0.3.0');
+  const view = createPanel(makeDocument(), registry.list(), normalizeExport(null), normalizeAppearance(null), {}, { run: id => runs.push(id), external() {}, report() {}, copyReport() {}, draft() {}, changed() {}, appearance() {}, visibility() {}, ...overrides }, '0.3.1');
   return { view, runs };
 }
 test('panel renders registered tools, keeps optional tools hidden and reveals them without rebuilding', async () => {
@@ -42,20 +42,22 @@ test('appearance changes retain controls and invalid input drafts', async () => 
   await view.elements.labels.fire('click'); await view.elements['theme-light'].fire('click'); assert.equal(view.elements['png.export-copy'], original); assert.equal(view.values().compression, ''); assert.equal(view.appearance().theme, 'light');
 });
 function find(root, id) { if (root.id === id) return root; for (const child of root.children) { const result = find(child, id); if (result) return result; } return null; }
-function mainFixture() {
-  const doc = makeDocument(), root = doc.createElement('root'), stored = new Map(); let setup, alerts = 0, writes = '';
+function mainFixture(fail = {}) {
+  const doc = makeDocument(), root = doc.createElement('root'), stored = new Map(); let setup, alerts = 0, writes = '', clipboardText = '', clipboardWrites = 0, pickers = 0;
   const ps = { app: { version: 'mock-host', documents: [], activeDocument: null, preferences: { general: { exportClipboard: true } }, async showAlert() { alerts++; } }, constants: {}, core: {}, action: {} };
-  const uxp = { storage: { localFileSystem: { async getFileForSaving() { return { async write(text) { writes = text; } }; } } }, entrypoints: { setup(s) { assert.equal(setup, undefined); setup = s; } } };
+  const uxp = { storage: { localFileSystem: { async getFileForSaving() { pickers++; if (fail.cancelSave) return null; return { async write(text) { if (fail.save) throw new Error('Disk full'); writes = text; } }; } } }, entrypoints: { setup(s) { assert.equal(setup, undefined); setup = s; } } };
+  const navigator = { platform: 'Win32', clipboard: { async writeText(text) { clipboardWrites++; if (fail.copy) throw new Error('Clipboard busy'); clipboardText = text; }, readText() { throw new Error('Unexpected clipboard read'); } } };
   const entry = path.resolve(__dirname, '../plugin/main.js');
-  vm.runInNewContext(fs.readFileSync(entry, 'utf8'), { document: doc, localStorage: { getItem: k => stored.get(k) || null, setItem: (k, v) => stored.set(k, v) },
+  vm.runInNewContext(fs.readFileSync(entry, 'utf8'), { document: doc, navigator, localStorage: { getItem: k => stored.get(k) || null, setItem: (k, v) => stored.set(k, v) },
     require: id => id === 'photoshop' ? ps : id === 'uxp' ? uxp : require(path.resolve(path.dirname(entry), id)) });
-  return { root, stored, setup, alerts: () => alerts, report: () => JSON.parse(writes) };
+  return { root, stored, setup, alerts: () => alerts, pickers: () => pickers, clipboardWrites: () => clipboardWrites,
+    report: () => JSON.parse(writes.slice(writes.indexOf('{'))), copied: () => JSON.parse(clipboardText.slice(clipboardText.indexOf('{'))) };
 }
 test('main loads all registry menu commands without HTML and performs no idle document work', () => {
   const f = mainFixture(); assert.equal(Object.keys(f.setup.commands).length, registry.list().length);
   f.setup.panels.relayPanel.create(f.root); const tree = f.root.children[0], status = find(tree, 'statusText'), writes = status.writes;
   for (let i = 0; i < 50; i++) f.setup.panels.relayPanel.show(f.root);
-  assert.equal(f.root.children.length, 1); assert.equal(f.root.children[0], tree); assert.equal(status.writes, writes); assert.equal(f.alerts(), 0); assert.match(f.root.style.height, /100vh/);
+  assert.equal(f.root.children.length, 1); assert.equal(f.root.children[0], tree); assert.equal(status.writes, writes); assert.equal(f.alerts(), 0); assert.equal(f.root.style.height, '100%');
 });
 test('tool visibility and appearance survive recreation separately from export settings', async () => {
   const f = mainFixture(); f.setup.panels.relayPanel.create(f.root);
@@ -66,4 +68,45 @@ test('tool visibility and appearance survive recreation separately from export s
 test('local diagnostics include tool IDs and lifecycle counters without touching clipboard', async () => {
   const f = mainFixture(); f.setup.panels.relayPanel.create(f.root); await find(f.root, 'report').fire('click');
   const report = f.report(); assert.equal(report.tools.length, 4); assert.equal(report.interface.backgroundPolling, false); assert.equal(report.interface.creates, 1); assert.equal(f.alerts(), 0);
+  assert.equal(f.clipboardWrites(), 0);
+});
+test('one-click report includes preflight errors and needs no file picker or clipboard read', async () => {
+  const f = mainFixture(); f.setup.panels.relayPanel.create(f.root);
+  await f.setup.commands.exportCopy();
+  await find(f.root, 'copyReport').fire('click');
+  const r = f.copied(); assert.equal(r.lastOperation.status, 'error'); assert.match(r.lastOperation.failure.message, /Open a document/);
+  assert.ok(r.diagnostics.events.some(e => e.level === 'error')); assert.equal(r.platform, 'Win32');
+  assert.equal(f.pickers(), 0); assert.equal(f.clipboardWrites(), 1); assert.match(find(f.root, 'reportStatus').textContent, /copied/);
+  assert.equal(find(f.root, 'reportStatus').hidden, false);
+});
+test('invalid export input becomes the reported operation instead of leaving a stale previous result', async () => {
+  const f = mainFixture(); f.setup.panels.relayPanel.create(f.root); await f.setup.commands.exportCopy();
+  find(f.root, 'compression').value = ''; await find(f.root, 'png.export-copy').fire('click');
+  await find(f.root, 'copyReport').fire('click'); const r = f.copied();
+  assert.equal(r.lastOperation.phase, 'Validating options'); assert.match(r.lastOperation.failure.message, /Compression/);
+  assert.equal(r.diagnostics.operations.length, 2);
+});
+test('clipboard failure offers file export and preserves both report error and original failure', async () => {
+  const f = mainFixture({ copy: true }); f.setup.panels.relayPanel.create(f.root); await f.setup.commands.exportCopy();
+  await find(f.root, 'copyReport').fire('click'); assert.match(find(f.root, 'reportStatus').textContent, /Use Save report/);
+  await find(f.root, 'report').fire('click'); const r = f.report();
+  assert.match(r.lastOperation.failure.message, /Open a document/); assert.ok(r.diagnostics.events.some(e => e.scope === 'report clipboard' && /Clipboard busy/.test(e.error.message)));
+  assert.equal(find(f.root, 'copyReport').attributes['aria-disabled'], 'false');
+});
+test('report save cancellation does not leave a stale success or block subsequent actions', async () => {
+  const f = mainFixture({ cancelSave: true }); f.setup.panels.relayPanel.create(f.root); await find(f.root, 'report').fire('click');
+  assert.match(find(f.root, 'reportStatus').textContent, /cancelled/); await find(f.root, 'copyReport').fire('click'); assert.equal(f.clipboardWrites(), 1);
+});
+test('failed report file write is captured in the next copied report without overwriting the tool failure', async () => {
+  const f = mainFixture({ save: true }); f.setup.panels.relayPanel.create(f.root); await f.setup.commands.exportCopy();
+  await find(f.root, 'report').fire('click'); assert.match(find(f.root, 'reportStatus').textContent, /not saved: Disk full/);
+  await find(f.root, 'copyReport').fire('click'); const r = f.copied();
+  assert.match(r.lastOperation.failure.message, /Open a document/); assert.ok(r.diagnostics.events.some(e => e.scope === 'report file' && e.error.message === 'Disk full'));
+});
+test('explicit resize range and one scroll body keep settings and reporting inside the panel', () => {
+  const { createManifest } = require('../scripts/build.cjs'); const m = createManifest({ name: 'Test', id: 'test', version: '0.3.1' }, registry.list()), p = m.entrypoints[0];
+  assert.ok(p.maximumSize.width > p.preferredFloatingSize.width * 4); assert.ok(p.maximumSize.height > p.preferredFloatingSize.height * 4);
+  const { view } = panel(); const toolbar = view.elements.settings.parentNode.parentNode;
+  assert.equal(toolbar.parentNode, view.elements.options.parentNode); assert.equal(view.elements.copyReport.parentNode.parentNode, toolbar.parentNode);
+  assert.doesNotMatch(require('../plugin/ui/styles.js'), /100vh/);
 });

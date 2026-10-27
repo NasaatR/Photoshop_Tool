@@ -78,10 +78,13 @@ test('preflight failures perform no document mutation', async () => {
 test('document changes while acquiring modal never exports the wrong document', async () => {
   const f = fixture({ changedDocument: true }); const r = await f.run(); assert.equal(r.status, 'error'); assert.equal(f.files.size, 0); assert.ok(!f.events.includes('duplicate'));
 });
-test('folder cancellation stops before any Photoshop mutation', async () => {
-  const f = fixture({ folderCancel: true }); const r = await f.run(); assert.equal(r.status, 'error'); assert.ok(!f.events.includes('modal')); assert.equal(f.files.size, 0);
+test('project folder access failure stops both export buttons before any Photoshop mutation', async () => {
+  for (const id of ['png.export-copy', 'png.selection-smart']) {
+    const f = fixture({ folderAccess: true }); const r = await f.run(id); assert.equal(r.status, 'error'); assert.ok(!f.events.includes('modal')); assert.equal(f.files.size, 0);
+    assert.equal(r.failure.cause.message, 'Access denied');
+  }
 });
-test('selection changes during the folder grant are revalidated', async () => {
+test('selection changes while resolving the project folder are revalidated', async () => {
   const f = fixture({ folder: () => { f.source.selection.bounds.right = 900; } }); const r = await f.run('png.selection-smart');
   assert.equal(r.status, 'error'); assert.match(r.error, /selection changed/); assert.equal(f.source.layers.length, 1);
 });

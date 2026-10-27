@@ -6,11 +6,11 @@ A modular Adobe Photoshop UXP toolbox by NasaatR. It starts with full-resolution
 
 ## Download and install
 
-**Development preview 0.3.0:** [Download Photoshop-Tool-0.3.0.ccx](https://github.com/NasaatR/Photoshop_Tool/raw/refs/heads/develop/dist/Photoshop-Tool-0.3.0.ccx). This is the installable plugin, not GitHub's source ZIP. [SHA-256](dist/SHA256SUMS.txt).
+**Development preview 0.3.1:** [Download Photoshop-Tool-0.3.1.ccx](https://github.com/NasaatR/Photoshop_Tool/raw/refs/heads/develop/dist/Photoshop-Tool-0.3.1.ccx). This is the installable plugin, not GitHub's source ZIP. [SHA-256](dist/SHA256SUMS.txt).
 
 1. Close Photoshop. Double-click the `.ccx` file and approve installation/update in Creative Cloud Desktop.
 2. Open Photoshop → **Plugins → Photoshop Tool → Photoshop Tool**.
-3. On the first PNG export in a folder, select the PSD's parent folder when Photoshop requests access. The grant is remembered.
+3. Approve the updated file/clipboard permissions during installation. Export finds the saved PSD's folder automatically; no folder picker is shown.
 
 UXP Developer Tool is not required for CCX installation. This updates the earlier **PNG Relay**: plugin ID `com.nasaat.pngrelay`, original menu command IDs, export preferences and folder-access keys are preserved. Unload any development copy in UDT before installing the CCX. To uninstall, use Creative Cloud Desktop → Manage Plugins → Photoshop Tool → Uninstall. Exported files remain.
 
@@ -25,11 +25,11 @@ Code is in **develop**, as requested by the repository owner. `main` is delibera
 | PNG only | Export without changing the image clipboard. Works even when Export Clipboard is disabled. |
 | Copy only | Copy visible artwork without a PNG, folder grant or disk staging. Also works on an unsaved document. |
 
-The first two buttons are visible by default. Enable the other tools under **gear → Tool buttons**; all four commands are also in Photoshop's Plugins menu. The label toggle, compact/roomy size, square/soft corners and Photoshop/dark/light theme are retained. Options scroll inside the panel. Click the status line for full output names/errors.
+The first two buttons are visible by default. Enable the other tools under **gear → Tool buttons**; all four commands are also in Photoshop's Plugins menu. The label toggle, compact/roomy size, square/soft corners and Photoshop/dark/light theme are retained. Drag the floating panel's edge/corner or a dock divider to resize. The manifest explicitly permits 176×96 through 4096×4096 pixels; Photoshop's docking layout may impose additional limits. Content, options and reports share one scroll body at small sizes. Click the status line for full output names/errors; the copy icon beside it copies a diagnostic report.
 
 ## Export behavior and limits
 
-- Windows 11; Photoshop **26.9+**, UXP API v2. Version 0.1.1 was reported working by the user. This modular 0.3.0 build has not been executed in a real Photoshop host here.
+- Windows 11; Photoshop **26.9+**, UXP API v2. Version 0.1.1 was reported working by the user. This 0.3.1 build has not been executed in a real Photoshop host here.
 - Original canvas dimensions and source 8/16-bit depth; RGB/Grayscale only. No lossy compression or arbitrary resizing. Other modes and 32-bit/HDR are refused instead of silently converted. Optional sRGB conversion changes only the temporary copy.
 - PNG uses current in-memory artwork, including unsaved edits. It does **not** automatically save/flatten the source PSD. Artboards export the full document canvas, not separate board files.
 - Smart Object extraction uses the selected raster layer's own content, not a merged crop of the whole composition. Text, groups, adjustment layers and existing Smart Objects are refused. Native Photoshop masks/styles/blending semantics apply.
@@ -39,13 +39,13 @@ The first two buttons are visible by default. Enable the other tools under **gea
 
 ## Recovery, data and permissions
 
-Filesystem permission is **request**, limited to explicitly selected folders through persistent UXP tokens. No network, clipboard API, process-launch, native helper or full disk permission. Nothing is uploaded by the plugin. Settings/grants are local. Copy only writes no files; saving a diagnostic report is a separate explicit user action.
+Filesystem permission is **fullAccess** so the requested export beside a saved PSD needs no folder picker. Runtime resolves and verifies only the intended project-folder Entry for each export, using UXP's storage provider. Old folder-token settings remain untouched but are no longer needed. `clipboard: readAndWrite` is UXP's permission required for **Copy report**; the plugin only writes diagnostic text on that explicit action and never reads the clipboard. Image copying still uses Photoshop's native image commands. No network, process launch or native helper. Nothing is uploaded. Copy only writes no files; diagnostic text is exported only by its own buttons.
 
 Before PNG replacement, the old file is moved to an operation-specific backup. Failed replacement attempts restore the backup when possible, retaining a direct handle instead of depending on a second file lookup. This is recovery handling, not an atomic filesystem transaction. Do not run simultaneous exporters on one output path. A PNG already open in Photoshop blocks replacement. Crashes or disk failures can leave `.photoshoptool-export-*` or `.photoshoptool-backup-*` files beside the PSD; inspect them before cleanup. Never delete a pre-existing PSD to recover an export.
 
 PNG commit, clipboard updates and parent-document edits are separate effects. Partial success is reported accurately. If selection export fails after creating the Smart Object, keep its contents and retry PNG + Copy there. If copying fails, a valid PNG can still be saved. If PNG replacement fails after copying, the clipboard may already be changed.
 
-**Help & report → Save diagnostic report** writes a user-selected text file with host/version, tool ID, elapsed operation time, bounded warnings/errors and panel lifecycle counters. Review filenames/error text before sharing; the report is not uploaded and does not replace the image clipboard.
+**Copy report** is the copy icon beside the status line and is also under **gear → Help & report**. It writes text ready for Ctrl+V, replacing the current image clipboard. **Save report .txt** in the same section saves that report with a file picker and keeps the clipboard unchanged. Reports contain host/plugin versions, panel size, settings, source dimensions/mode/depth, acknowledged effects, timestamped steps, failure phase, error codes/stacks/causes and cleanup errors. The journal keeps the last eight operations and 100 events in memory for the current plugin session, including option-validation and report-export failures; a later success does not erase earlier errors. It is not a Photoshop-wide or persistent crash log. Local absolute paths are redacted; output filenames/error text can remain, so review before sharing. Nothing is sent automatically.
 
 ## Add a tool
 
@@ -53,7 +53,7 @@ See [docs/adding-tools.md](docs/adding-tools.md). A bundled module declares a st
 
 | Location | Responsibility |
 | --- | --- |
-| `plugin/core/` | Registry, single-flight runner, host/modal/history helpers, legacy preferences, explicit folder access and safe file commit. |
+| `plugin/core/` | Registry, single-flight runner, bounded diagnostics, host/modal/history helpers, legacy preferences, direct project-folder access and safe file commit. |
 | `plugin/tools/png/` | PNG/copy/Smart Object definitions, logic and service. |
 | `plugin/ui/` | Registry-driven panel, original SVG icons and scoped theme-aware styling. |
 | `plugin/main.js` | Dependency wiring and one UXP entrypoint registration. |
@@ -66,10 +66,12 @@ The GitHub check workflow runs tests, build/source checks and a byte-for-byte co
 
 ## Verification and provenance
 
-Local checks cover registry extension/duplicate IDs, manifest parity, source syntax/imports, preference preservation, folder grants, full-size 16-bit output, one-open PNG verification, copy/save variants, file backup/restore failures, stale targets, cancellation, Smart Object rollback/retry, keyboard controls, visibility and idle no-op rendering. They use mocks, not real Photoshop. CCX files are also checked with an independent ZIP reader.
+Local checks cover registry extension/duplicate IDs, manifest parity, source syntax/imports, preference preservation, direct folder resolution with no picker, full-size 16-bit output, one-open PNG verification, copy/save variants, file backup/restore failures, stale targets, cancellation, Smart Object rollback/retry, keyboard controls, visibility, idle no-op rendering and report export/failures/history bounds. They use mocks, not real Photoshop. CCX files are also checked with an independent ZIP reader.
 
-Not verified here: native Photoshop 0.3.0 installation/rendering, real PNG appearance/ICC, external paste/alpha, white flashing or Microsoft Defender acceptance. No antivirus certification or release signing is claimed.
+Not verified here: native Photoshop 0.3.1 installation/rendering/resizing, real PNG appearance/ICC, external paste/alpha, text clipboard or Microsoft Defender acceptance. White flashing remains undiagnosed. No antivirus certification or release signing is claimed.
 
 Original project: **[NasaatR/Photoshop_Tool](https://github.com/NasaatR/Photoshop_Tool)**. MIT licensed; [LICENSE](LICENSE). The understated UI credit is **Made by Nasaat**; it does not add a restriction to the MIT license. No third-party runtime dependencies or copied exporter code are bundled.
 
 Primary platform references: [Photoshop document API](https://developer.adobe.com/photoshop/uxp/2022/ps-reference/classes/document), [modal/history](https://developer.adobe.com/photoshop/uxp/2022/ps-reference/media/executeasmodal), [Adobe independent package format](https://developer.adobe.com/developer-distribution/creative-cloud/docs/guides/submission/overview), [CCX installation](https://developer.adobe.com/uxp/guides/how-to/distribution/install/).
+
+For this update: [manifest size fields](https://developer.adobe.com/photoshop/uxp/2022/guides/uxp-guide/uxp-misc/manifest-v4/), [file/clipboard permissions](https://developer.adobe.com/photoshop/uxp/2022/guides/uxp-guide/uxp-misc/manifest-v5/), [storage provider](https://developer.adobe.com/photoshop/uxp/2022/uxp-api/reference-js/modules/uxp/persistent-file-storage/file-system-provider), [text clipboard](https://developer.adobe.com/photoshop/uxp/2022/uxp-api/reference-js/global-members/data-transfers/clipboard).

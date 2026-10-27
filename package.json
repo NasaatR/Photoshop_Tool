@@ -1,6 +1,6 @@
 {
   "name": "nasaat-photoshop-tool",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "A modular Photoshop UXP toolbox with full-resolution PNG export and image copying.",
   "license": "MIT",
