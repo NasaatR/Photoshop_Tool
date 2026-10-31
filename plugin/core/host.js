@@ -14,12 +14,12 @@ async function withHistory(ctx, documentID, name, work, warn) {
   catch (e) { if (!failed) throw e; try { warn('History cleanup failed: ' + String(e.message || e), e); } catch (_) {} }
   if (failed) throw error; return value;
 }
-function createHost(ps) {
+function createHost(ps, environment = {}) {
   const { app, core, constants: C, action } = ps;
   const byID = id => app.documents.find(d => d.id === id);
   const cancel = ctx => { if (ctx.isCancelled) throw new Error('Cancelled.'); };
   const batch = async descriptor => assertResults(await action.batchPlay([{ ...descriptor, _options: { dialogOptions: 'dontDisplay' } }], {}));
-  return { app, C, byID, cancel, batch,
+  return { app, C, byID, cancel, batch, version: environment.photoshop || app.version || 'unavailable',
     async modal(name, work) { return core.executeAsModal(work, { commandName: name, timeOut: 2 }); },
     async select(id) { if (!byID(id)) throw new Error('The operation document was closed.'); if (app.activeDocument && app.activeDocument.id === id) return; await batch({ _obj: 'select', _target: [{ _ref: 'document', _id: id }] }); },
     async own(ctx, doc) { await ctx.hostControl.registerAutoCloseDocument(doc.id); return doc; },

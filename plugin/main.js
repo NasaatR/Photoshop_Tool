@@ -4,6 +4,7 @@ const uxp = require('uxp');
 const product = require('./product.json');
 const registry = require('./tools/index.js');
 const { createHost } = require('./core/host.js');
+const { getEnvironment } = require('./core/environment.js');
 const { createRunner } = require('./core/runner.js');
 const { createDiagnostics, formatReport, copyReport } = require('./core/diagnostics.js');
 const { createPreferences, readExportDraft } = require('./core/preferences.js');
@@ -12,7 +13,8 @@ const { createPNGService } = require('./tools/png/service.js');
 const { createPanel } = require('./ui/panel.js');
 const preferences = createPreferences(localStorage);
 const diagnostics = createDiagnostics();
-const host = createHost(ps);
+const environment = getEnvironment(ps, uxp);
+const host = createHost(ps, environment);
 const services = { host, png: createPNGService(host, createOutputAccess(uxp.storage.localFileSystem), file => file.read({ format: uxp.storage.formats.binary })) };
 let draft = preferences.export(), appearance = preferences.refreshAppearance(preferences.appearance()), visibility = preferences.exposeCopyButton(preferences.visibility());
 let view = null, uiBusy = false, pending = preferences.problems().length ? [preferences.problems().join('\n'), 'error'] : ['Ready', 'ready'];
@@ -42,7 +44,7 @@ function reportText() {
   capture();
   let platform = 'unknown';
   try { platform = navigator.platform || 'unknown'; } catch (_) {}
-  return formatReport({ schema: 2, product: product.name, version: product.version, generatedAt: new Date().toISOString(), photoshop: ps.app.version, platform,
+  return formatReport({ schema: 2, product: product.name, version: product.version, generatedAt: new Date().toISOString(), photoshop: environment.photoshop, environment, platform,
     status: pending[0], statusState: pending[1], exportClipboard: ps.app.preferences.general.exportClipboard === true, lastOperation: runner.report(),
     interface: { ...lifecycle, appearance, visibility, width: view ? view.root.clientWidth : null, height: view ? view.root.clientHeight : null, backgroundPolling: false, animations: false },
     tools: registry.list().map(t => t.id), diagnostics: diagnostics.report() });

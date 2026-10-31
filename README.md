@@ -6,7 +6,7 @@ A modular Adobe Photoshop UXP toolbox by NasaatR. It starts with full-resolution
 
 ## Download and install
 
-**Development preview 0.3.3:** [Download Photoshop-Tool-0.3.3.ccx](https://github.com/NasaatR/Photoshop_Tool/raw/refs/heads/develop/dist/Photoshop-Tool-0.3.3.ccx). This is the installable plugin, not GitHub's source ZIP. [SHA-256](dist/SHA256SUMS.txt).
+**Development preview 0.3.4:** [Download Photoshop-Tool-0.3.4.ccx](https://github.com/NasaatR/Photoshop_Tool/raw/refs/heads/develop/dist/Photoshop-Tool-0.3.4.ccx). This is the installable plugin, not GitHub's source ZIP. [SHA-256](dist/SHA256SUMS.txt).
 
 1. Close Photoshop. Double-click the `.ccx` file and approve installation/update in Creative Cloud Desktop.
 2. Open Photoshop → **Plugins → Photoshop Tool → Photoshop Tool**.
@@ -33,7 +33,7 @@ Drag the floating panel's edge/corner or a dock divider to resize. The manifest 
 
 ## Export behavior and limits
 
-- Windows 11; Photoshop **26.9+**, UXP API v2. Version 0.1.1 was reported working by the user. This 0.3.3 build has not been executed in a real Photoshop host here.
+- Windows 11; Photoshop **26.9+**, UXP API v2. Version 0.1.1 was reported working by the user. This 0.3.4 build has not been executed in a real Photoshop host here.
 - Original canvas dimensions and source 8/16-bit depth; RGB/Grayscale only. No lossy compression or arbitrary resizing. Other modes and 32-bit/HDR are refused instead of silently converted. Optional sRGB conversion changes only the temporary copy.
 - PNG uses current in-memory artwork, including unsaved edits. It does **not** automatically save/flatten the source PSD. Artboards export the full document canvas, not separate board files.
 - Smart Object input follows the table below. The visible-composite path uses native Stamp Visible (`mergeVisible` with `duplicate: true`, equivalent to Shift+Ctrl+Alt+E) on an owned temporary pixel layer at the top. Original layers remain editable and hidden layers stay excluded. The full stamp and helper are removed after extracting the region, leaving exactly one new Smart Object. The original pixel selection is saved/loaded through an owned alpha channel so a feathered/nonrectangular mask is applied once, then that channel is removed. No selection means an explicit full-canvas rectangle, including when artboards are present; the original no-selection state is restored. Quick Mask and non-composite channels are still refused. Native Photoshop masks/styles/blending semantics apply.
@@ -81,7 +81,7 @@ The GitHub check workflow runs tests, build/source checks and a byte-for-byte co
 
 Local checks cover registry extension/duplicate IDs, manifest parity, source syntax/imports, preference preservation, direct folder resolution with no picker, full-size 16-bit output, PNG structure/CRC verification without opening a document, full-composition copy with an existing selection, copy/save variants, file backup/restore failures, stale targets, cancellation, Smart Object rollback/retry, keyboard controls, one-time Copy visibility migration, idle no-op rendering and report export/failures/history bounds. They use mocks, not real Photoshop. CCX files are also checked with an independent ZIP reader.
 
-Not verified here: native Photoshop 0.3.3 installation/rendering/resizing, real Stamp Visible/selection-alpha behavior, PNG appearance/ICC, external paste/alpha, text clipboard or Microsoft Defender acceptance. UI structure/keyboard/preferences are checked with DOM mocks; a screenshot/native visual review of this version was not available. White flashing remains undiagnosed. No antivirus certification or release signing is claimed. A focused host check is: select a region with a text/group layer active (then with no active layer), click Smart Object, confirm one new object/open contents plus PNG/copy and unchanged original layers/selection; repeat with no pixel selection to check the whole canvas. Return Copy report if an action fails.
+Not verified here: native Photoshop 0.3.4 installation/rendering/resizing, real Stamp Visible/selection-alpha behavior, PNG appearance/ICC, external paste/alpha, text clipboard or Microsoft Defender acceptance. UI structure/keyboard/preferences are checked with DOM mocks; a screenshot/native visual review of this version was not available. White flashing remains undiagnosed. No antivirus certification or release signing is claimed. A focused host check is: select a region with a text/group layer active (then with no active layer), click Smart Object, confirm one new object/open contents plus PNG/copy and unchanged original layers/selection; repeat with no pixel selection to check the whole canvas. Return Copy report if an action fails.
 
 Original project: **[NasaatR/Photoshop_Tool](https://github.com/NasaatR/Photoshop_Tool)**. MIT licensed; [LICENSE](LICENSE). The understated UI credit is **Made by Nasaat**; it does not add a restriction to the MIT license. No third-party runtime dependencies or copied exporter code are bundled.
 
@@ -92,3 +92,5 @@ For this update: [manifest size fields](https://developer.adobe.com/photoshop/ux
 Copy/verification references: [native merged layer copy](https://developer.adobe.com/photoshop/uxp/2022/ps-reference/classes/layer#copy), [binary File.read](https://developer.adobe.com/photoshop/uxp/2022/uxp-api/reference-js/modules/uxp/persistent-file-storage/storage), [W3C PNG specification](https://www.w3.org/TR/png-3/).
 
 Smart Object references: [Adobe Stamp Visible workflow](https://helpx.adobe.com/photoshop/desktop/create-manage-layers/get-started-layers/merge-and-stamp-layers.html), [selection save/load](https://developer.adobe.com/photoshop/uxp/2022/ps-reference/classes/selection), [recorded native descriptor discussion](https://forums.creativeclouddeveloper.com/t/get-layer-id-from-doing-mergevisible-batchplay-command/7737). Descriptor behavior is source-backed and mocked, not a claim of execution on the user's host.
+
+Smart Object reliability: native Stamp Visible may consume its owned helper. Preparation stores numeric IDs, reacquires live layer/channel references after mutations and skips already-consumed helpers. Reports include `smartStep`, `smartLayerIDs`, nested native causes and Photoshop/UXP versions from UXP host metadata. The previously reported missing-layer error is reproduced with strict mocked handles; this is not a claim of native Photoshop confirmation.

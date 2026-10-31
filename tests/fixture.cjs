@@ -8,7 +8,7 @@ const { createOutputAccess } = require('../plugin/core/output-access.js');
 const { normalizeExport } = require('../plugin/core/preferences.js');
 const { pngFixture } = require('./png-fixture.cjs');
 function fixture(fail = {}) {
-  const events = [], files = new Map(), autoClose = new Set(), statuses = [], copied = [], stamps = [];
+  const events = [], files = new Map(), autoClose = new Set(), statuses = [], copied = [], stamps = [], staleHandles = new WeakSet();
   let docID = 1, layerID = 100, parentState, folderCalls = 0;
   const C = { DocumentMode: { RGB: 'RGB', GRAYSCALE: 'GRAY' }, BitsPerChannelType: { EIGHT: 'bitDepth8', SIXTEEN: 'bitDepth16' },
     LayerKind: { NORMAL: 'pixel', SMARTOBJECT: 'smart', GROUP: 'group', TEXT: 'text' }, ChannelType: { COMPONENT: 'component' },
@@ -56,7 +56,8 @@ function fixture(fail = {}) {
       },
       async createLayer(kind, options) { hit('createLayer'); const layer = makeLayer(this, options.name, kind); layer.empty = true;
         if (fail.nestedHelper && this.layers[0].layers) this.layers[0].layers.unshift(layer); else this.layers.unshift(layer);
-        this.activeLayers = [layer]; return layer;
+        this.activeLayers = [layer];
+        return fail.stampConsumesHelper ? new Proxy(layer, { get(target, key) { if (staleHandles.has(target)) throw new Error('The layer with an id of ' + target.id + ' does not exist.'); return Reflect.get(target, key); } }) : layer;
       },
       async duplicate(name, merged) { hit('duplicate'); assert.equal(merged, true); const copy = makeDoc(name, '', this.width, this.height, this.bitsPerChannel); copy.mode = this.mode; copy.composition = this.layers.filter(layer => layer.visible !== false).map(layer => layer.id); return copy; },
       async close() { hit('close'); app.documents = app.documents.filter(d => d !== this); if (app.activeDocument === this) app.activeDocument = app.documents[0]; },
@@ -79,11 +80,13 @@ function fixture(fail = {}) {
   } }, action: { async batchPlay(commands) {
     const c = commands[0]; hit(c._obj);
     if (fail.actionError === c._obj) return [{ _obj: 'error', result: -1, message: 'Action unavailable' }];
+    if (c._obj === 'make') { assert.equal(c._target[0]._ref, 'layer'); await source.createLayer(C.LayerKind.NORMAL, { name: c.using.name }); }
     if (c._obj === 'mergeVisible') {
       assert.equal(c.duplicate, true); assert.equal(source.selection.bounds, null);
       const composition = allLayers(source.layers).filter(layer => layer.visible !== false && !layer.empty).map(layer => layer.id); stamps.push(composition);
       if (fail.stampNoop) return [{}];
       if (fail.destructiveStamp) source.layers = [];
+      if (fail.stampConsumesHelper) { const helper = source.activeLayers[0]; removeLayer(source.layers, helper.id); staleHandles.add(helper); }
       const stamped = fail.stampReusesHelper ? source.activeLayers[0] : makeLayer(source, 'Composite'); stamped.empty = false; stamped.composition = composition;
       if (!fail.stampReusesHelper) source.layers.unshift(stamped); source.activeLayers = [stamped];
     }

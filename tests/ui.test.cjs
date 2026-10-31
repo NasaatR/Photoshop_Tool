@@ -44,8 +44,8 @@ test('appearance changes retain controls and invalid input drafts', async () => 
 function find(root, id) { if (root.id === id) return root; for (const child of root.children) { const result = find(child, id); if (result) return result; } return null; }
 function mainFixture(fail = {}) {
   const doc = makeDocument(), root = doc.createElement('root'), stored = new Map(Object.entries(fail.stored || {})); let setup, alerts = 0, writes = '', clipboardText = '', clipboardWrites = 0, pickers = 0;
-  const ps = { app: { version: 'mock-host', documents: [], activeDocument: null, preferences: { general: { exportClipboard: true } }, async showAlert() { alerts++; } }, constants: {}, core: {}, action: {} };
-  const uxp = { storage: { localFileSystem: { async getFileForSaving() { pickers++; if (fail.cancelSave) return null; return { async write(text) { if (fail.save) throw new Error('Disk full'); writes = text; } }; } } }, entrypoints: { setup(s) { assert.equal(setup, undefined); setup = s; } } };
+  const ps = { app: { version: fail.noAppVersion ? undefined : 'mock-host', documents: [], activeDocument: null, preferences: { general: { exportClipboard: true } }, async showAlert() { alerts++; } }, constants: {}, core: {}, action: {} };
+  const uxp = { host: fail.uxpHost, versions: fail.uxpVersions, storage: { localFileSystem: { async getFileForSaving() { pickers++; if (fail.cancelSave) return null; return { async write(text) { if (fail.save) throw new Error('Disk full'); writes = text; } }; } } }, entrypoints: { setup(s) { assert.equal(setup, undefined); setup = s; } } };
   const navigator = { platform: 'Win32', clipboard: { async writeText(text) { clipboardWrites++; if (fail.copy) throw new Error('Clipboard busy'); clipboardText = text; }, readText() { throw new Error('Unexpected clipboard read'); } } };
   const entry = path.resolve(__dirname, '../plugin/main.js');
   vm.runInNewContext(fs.readFileSync(entry, 'utf8'), { document: doc, navigator, localStorage: { getItem: k => stored.get(k) || null, setItem: (k, v) => stored.set(k, v) },
@@ -101,6 +101,12 @@ test('one-click report includes preflight errors and needs no file picker or cli
   assert.ok(r.diagnostics.events.some(e => e.level === 'error')); assert.equal(r.platform, 'Win32');
   assert.equal(f.pickers(), 0); assert.equal(f.clipboardWrites(), 1); assert.match(find(f.root, 'reportStatus').textContent, /copied/);
   assert.equal(find(f.root, 'reportStatus').hidden, false);
+});
+test('copied report and operation both include the UXP host version when app.version is absent', async () => {
+  const f = mainFixture({ noAppVersion: true, uxpHost: { name: 'Photoshop', version: '28.0.1' }, uxpVersions: { uxp: '9.4.0' } });
+  f.setup.panels.relayPanel.create(f.root); await f.setup.commands.selectionSmart(); await find(f.root, 'copyReport').fire('click');
+  const r = f.copied(); assert.equal(r.photoshop, '28.0.1'); assert.equal(r.lastOperation.host, '28.0.1');
+  assert.equal(r.environment.versionSource, 'uxp.host.version'); assert.equal(r.environment.uxp, '9.4.0');
 });
 test('invalid export input becomes the reported operation instead of leaving a stale previous result', async () => {
   const f = mainFixture(); f.setup.panels.relayPanel.create(f.root); await f.setup.commands.exportCopy();

@@ -36,6 +36,20 @@ test('Stamp Visible variants that fill the owned helper still preserve every ori
   const f = fixture({ stampReusesHelper: true }); f.source.activeLayers = []; const original = f.source.layers[0];
   const r = await f.run('png.selection-smart'); assert.equal(r.status, 'complete'); assert.equal(f.source.layers.length, 2); assert.ok(f.source.layers.includes(original));
 });
+test('consumed helper invalidates the old UXP handle but no-layer selection export still completes', async () => {
+  const f = fixture({ stampConsumesHelper: true }); f.source.activeLayers = []; const originals = f.source.layers.slice();
+  f.source.width = 3168; f.source.height = 1782; f.source.bitsPerChannel = f.C.BitsPerChannelType.EIGHT;
+  const r = await f.run('png.selection-smart'); assert.equal(r.status, 'complete', r.error);
+  assert.equal(r.pngSaved, true); assert.equal(r.imageCopied, true); assert.equal(f.source.layers.length, originals.length + 1);
+  originals.forEach(layer => assert.ok(f.source.layers.includes(layer))); assert.equal(f.source.channels.length, 1);
+  assert.equal(r.smartHelperConsumed, true); assert.equal(typeof r.smartLayerIDs.helper, 'number'); assert.equal(r.source.depth, f.C.BitsPerChannelType.EIGHT);
+});
+test('native failures retain the exact Smart Object step, native code and original cause', async () => {
+  const f = fixture({ actionError: 'mergeVisible' }); f.source.activeLayers = [];
+  const r = await f.run('png.selection-smart'); assert.equal(r.status, 'error'); assert.equal(r.smartStep, 'stamp-visible');
+  assert.equal(r.failure.step, 'stamp-visible'); assert.equal(r.code, -1); assert.equal(r.failure.cause.message, 'Action unavailable');
+  assert.ok(r.steps.some(step => step.message === 'Creating temporary pixel layer…')); assert.equal(f.source.layers.length, 1);
+});
 test('failures at composite/selection/conversion steps roll back owned layers and channels', async () => {
   for (const fail of [{ createLayer: true }, { actionError: 'mergeVisible' }, { stampNoop: true }, { destructiveStamp: true }, { loadSelection: true }, { actionError: 'copyToLayer' }, { deleteLayer: true }, { actionError: 'newPlacedLayer' }, { deleteChannel: true }, { actionError: 'placedLayerEditContents' }]) {
     const f = fixture(fail); const original = f.source.layers[0], bounds = f.source.selection.bounds, mask = f.source.selection.mask; f.source.activeLayers = [];

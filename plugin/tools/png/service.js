@@ -76,7 +76,7 @@ function createPNGService(host, resolveFolder, readBinary) {
     if (!['document', 'selection', 'save', 'copy'].includes(mode)) throw new Error('Unknown PNG operation: ' + mode);
     const copy = mode !== 'save';
     const source = app.activeDocument;
-    job.record.host = app.version; job.record.mode = mode;
+    job.record.host = host.version; job.record.mode = mode;
     if (source) job.record.source = { id: source.id, ...dimensions(source), mode: source.mode, savedLocally: !!source.path,
       activeLayerIDs: source.activeLayers.map(layer => layer.id), selection: !!source.selection.bounds };
     host.validate(source, copy);

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.4
+
+- Fix a stale-layer-handle path in Smart Object composite preparation: native Stamp Visible can consume the temporary helper, so cache primitive IDs, re-resolve live layers after each mutation and skip cleanup when an owned helper is already absent.
+- Create the helper with native make and identify it from the live layer-ID difference instead of depending on a createLayer return wrapper when no layer is active. Re-resolve region/Smart Object/channel references across copy, delete and conversion; preserve original-layer guards and history rollback.
+- Add exact Smart Object substep, owned IDs and original-cause diagnostics. Read Photoshop version from UXP host metadata instead of reporting undefined from app.version; include UXP version/source.
+- Reproduce the reported no-active-layer/selected-region failure with invalidated mock handles and verify the fix. Native Photoshop confirmation remains outstanding.
+- Record the owner's concise Photoshop workflow/UI preferences for future changes without modifying the attached project playbook.
+
 ## 0.3.3
 
 - Extend Smart Object extraction: text/group/adjustment/smart/multiple/no-layer inputs use a native visible-composite stamp; no pixel selection uses the entire canvas. Preserve the direct selected-pixel-layer path when a selection exists.

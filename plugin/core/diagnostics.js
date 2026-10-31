@@ -9,6 +9,7 @@ function errorDetails(error, seen = new Set(), depth = 0) {
   const result = { name: cleanText(error && error.name || 'Error', 120), message: cleanText(error && error.message != null ? error.message : String(error)) };
   if (error && error.stack) result.stack = cleanText(error.stack, 4000);
   for (const key of ['code', 'number', 'result']) if (error && error[key] != null) result[key] = typeof error[key] === 'number' ? error[key] : cleanText(error[key], 120);
+  if (error && error.step) result.step = cleanText(error.step, 120);
   for (const key of ['cause', 'primaryError', 'cleanupError']) if (error && error[key] !== undefined) result[key] = errorDetails(error[key], seen, depth + 1);
   return result;
 }
@@ -38,7 +39,7 @@ function createDiagnostics() {
 }
 function formatReport(report) {
   return report.product + ' ' + report.version + ' — diagnostic report\n' +
-    'Photoshop: ' + report.photoshop + '\nGenerated: ' + report.generatedAt + '\n' +
+    'Photoshop: ' + (report.photoshop || 'unavailable') + '\nGenerated: ' + report.generatedAt + '\n' +
     'Status: ' + cleanText(report.status, 500) + '\n\n' + JSON.stringify(snapshot(report), null, 2) + '\n';
 }
 async function copyReport(clipboard, text) {
