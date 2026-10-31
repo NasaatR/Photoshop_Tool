@@ -82,7 +82,9 @@ test('design refresh enables rounded labeled tools once and retains theme, densi
   saved = JSON.parse(next.stored.get('pngrelay.appearance.v1')); assert.equal(saved.labels, false); assert.equal(saved.corners, 'square'); assert.equal(saved.theme, 'light');
 });
 test('rounded toolbar exposes distinct image/report actions, grid layout and busy state', async () => {
-  const { view } = panel(); assert.equal(view.root.attributes['data-tool-layout'], 'row');
+  const { view } = panel(); assert.equal(view.root.attributes['data-tool-layout'], 'grid');
+  assert.equal(view.elements['png.export-copy'].parentNode.attributes['data-layout'], 'row');
+  assert.equal(view.elements['layers.curves'].parentNode.attributes['data-layout'], 'grid');
   view.elements['visible-png.export-only'].checked = true; await view.elements['visible-png.export-only'].fire('change');
   assert.equal(view.root.attributes['data-tool-layout'], 'grid'); view.disable(true); assert.equal(view.root.attributes['aria-busy'], 'true');
   assert.notEqual(view.elements['png.copy-only'].attributes['aria-label'], view.elements.copyReport.attributes['aria-label']);
@@ -90,7 +92,7 @@ test('rounded toolbar exposes distinct image/report actions, grid layout and bus
 });
 test('local diagnostics include tool IDs and lifecycle counters without touching clipboard', async () => {
   const f = mainFixture(); f.setup.panels.relayPanel.create(f.root); await find(f.root, 'report').fire('click');
-  const report = f.report(); assert.equal(report.tools.length, 4); assert.equal(report.interface.backgroundPolling, false); assert.equal(report.interface.creates, 1); assert.equal(f.alerts(), 0);
+  const report = f.report(); assert.equal(report.tools.length, registry.list().length); assert.equal(report.interface.backgroundPolling, false); assert.equal(report.interface.creates, 1); assert.equal(f.alerts(), 0);
   assert.equal(f.clipboardWrites(), 0);
 });
 test('one-click report includes preflight errors and needs no file picker or clipboard read', async () => {
@@ -138,4 +140,20 @@ test('explicit resize range and one scroll body keep settings and reporting insi
   const { view } = panel(); const toolbar = view.elements.settings.parentNode.parentNode;
   assert.equal(toolbar.parentNode, view.elements.options.parentNode); assert.equal(view.elements.copyReport.parentNode.parentNode, toolbar.parentNode);
   assert.doesNotMatch(require('../plugin/ui/styles.js'), /100vh/);
+});
+test('new layer section preserves hidden overrides and disappears when all its tools are hidden', async () => {
+  const { view } = panel(); const section = view.elements['layers.smart-object'].parentNode.parentNode;
+  assert.equal(section.hidden, false);
+  for (const tool of registry.list().filter(tool => tool.group === 'Layers')) {
+    assert.equal(view.elements[tool.id].children[0].attributes.viewBox, '0 0 24 24');
+    const checkbox = view.elements['visible-' + tool.id]; checkbox.checked = false; await checkbox.fire('change');
+  }
+  assert.equal(section.hidden, true); assert.equal(view.elements['png.export-copy'].hidden, false);
+});
+test('layer commands are independent of an invalid PNG draft and report the actual host preflight', async () => {
+  const f = mainFixture(); f.setup.panels.relayPanel.create(f.root); find(f.root, 'compression').value = '';
+  await f.setup.commands.convertSmartObject(); await find(f.root, 'copyReport').fire('click');
+  const r = f.copied(); assert.equal(r.lastOperation.tool, 'layers.smart-object');
+  assert.match(r.lastOperation.error, /Open a document/); assert.doesNotMatch(r.lastOperation.error, /Compression/);
+  assert.equal(f.pickers(), 0);
 });

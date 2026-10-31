@@ -18,9 +18,9 @@ function createHost(ps, environment = {}) {
   const { app, core, constants: C, action } = ps;
   const byID = id => app.documents.find(d => d.id === id);
   const cancel = ctx => { if (ctx.isCancelled) throw new Error('Cancelled.'); };
-  const batch = async descriptor => assertResults(await action.batchPlay([{ ...descriptor, _options: { dialogOptions: 'dontDisplay' } }], {}));
+  const batch = async descriptor => assertResults(await action.batchPlay([{ ...descriptor, _options: { dialogOptions: 'dontDisplay', ...descriptor._options } }], {}));
   return { app, C, byID, cancel, batch, version: environment.photoshop || app.version || 'unavailable',
-    async modal(name, work) { return core.executeAsModal(work, { commandName: name, timeOut: 2 }); },
+    async modal(name, work, options = {}) { return core.executeAsModal(work, { commandName: name, timeOut: 2, interactive: options.interactive === true }); },
     async select(id) { if (!byID(id)) throw new Error('The operation document was closed.'); if (app.activeDocument && app.activeDocument.id === id) return; await batch({ _obj: 'select', _target: [{ _ref: 'document', _id: id }] }); },
     async own(ctx, doc) { await ctx.hostControl.registerAutoCloseDocument(doc.id); return doc; },
     async close(ctx, doc) { if (!doc || !byID(doc.id) || ctx.isCancelled) return; const id = doc.id; await doc.close(C.SaveOptions.DONOTSAVECHANGES); await ctx.hostControl.unregisterAutoCloseDocument(id); },

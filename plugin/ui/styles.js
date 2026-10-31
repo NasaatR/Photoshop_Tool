@@ -20,6 +20,8 @@ module.exports = `
 #photoshoptool .pt-toolbar {display:flex;align-items:center;justify-content:space-between;min-width:0;min-height:24px;margin-bottom:6px;}
 #photoshoptool .pt-eyebrow {font-size:10px;font-weight:600;letter-spacing:1px;color:var(--muted);padding-left:2px;}
 #photoshoptool .pt-actions {display:flex;flex-wrap:wrap;min-width:0;margin-right:-6px;}
+#photoshoptool .pt-section {min-width:0;margin-bottom:4px;}
+#photoshoptool .pt-section-title {font-size:10px;color:var(--muted);line-height:15px;margin:2px 0 5px 2px;}
 #photoshoptool .pt-control {display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid var(--border);border-radius:var(--small-radius);background-color:transparent;color:var(--fg);padding:0;margin:0;cursor:pointer;outline:none;}
 #photoshoptool .pt-control:hover {background-color:var(--hover);}
 #photoshoptool .pt-control:focus {border-color:var(--fg);outline:1px solid var(--fg);outline-offset:1px;}
@@ -36,7 +38,7 @@ module.exports = `
 #photoshoptool.pt-labels .pt-action {height:70px;flex-direction:column;padding:7px 4px;}
 #photoshoptool.pt-labels.pt-roomy .pt-action {height:78px;}
 #photoshoptool.pt-labels .pt-caption {display:block;margin-top:6px;font-size:10px;font-weight:500;line-height:12px;text-align:center;white-space:normal;max-width:100%;}
-#photoshoptool[data-tool-layout="grid"] .pt-action {flex:1 0 calc(50% - 6px);max-width:calc(50% - 6px);}
+#photoshoptool .pt-actions[data-layout="grid"] .pt-action {flex:1 0 calc(50% - 6px);max-width:calc(50% - 6px);}
 #photoshoptool .pt-status-row {display:flex;align-items:center;min-width:0;min-height:30px;margin-top:1px;padding:0 3px 0 7px;border:1px solid var(--border);border-radius:var(--small-radius);background-color:var(--status-bg);}
 #photoshoptool .pt-status {flex:1;min-width:0;min-height:28px;display:flex;align-items:center;cursor:pointer;}
 #photoshoptool .pt-status:focus {outline:1px solid var(--fg);outline-offset:1px;border-radius:var(--small-radius);}

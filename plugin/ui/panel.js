@@ -36,18 +36,27 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   }
   const root = make('div', null, { id: 'photoshoptool' }); root.appendChild(make('style', CSS));
   const scroll = make('div', null, { class: 'pt-scroll' }); root.appendChild(scroll);
-  const toolbar = make('div', null, { class: 'pt-toolbar' }), actions = make('div', null, { class: 'pt-actions', role: 'group', 'aria-label': 'Image tools' });
+  const toolbar = make('div', null, { class: 'pt-toolbar' }), sections = [];
   toolbar.appendChild(make('div', 'QUICK TOOLS', { class: 'pt-eyebrow' }));
+  const groups = new Map();
   tools.forEach(tool => {
+    const group = tool.group || 'Tools';
+    if (!groups.has(group)) {
+      const section = make('div', null, { class: 'pt-section' });
+      const actions = make('div', null, { class: 'pt-actions', role: 'group', 'aria-label': group });
+      append(section, [make('div', group, { class: 'pt-section-title' }), actions]);
+      groups.set(group, { section, actions, tools: [] }); sections.push(section);
+    }
     const node = control(tool.id, null, () => handlers.run(tool.id), 'pt-action' + (tool.emphasis === 'primary' ? ' pt-primary' : ''), tool.description || tool.title);
-    append(node, [icon(doc, tool.icon), make('span', tool.label, { class: 'pt-caption' })]); toolNodes[tool.id] = node; actions.appendChild(node);
+    append(node, [icon(doc, tool.icon), make('span', tool.label, { class: 'pt-caption' })]); toolNodes[tool.id] = node;
+    groups.get(group).actions.appendChild(node); groups.get(group).tools.push(tool);
   });
   const utilities = make('div', null, { class: 'pt-tools' });
   const labelToggle = control('labels', null, () => applyAppearance({ labels: !appearance.labels }), 'pt-small', 'Show button labels'); labelToggle.appendChild(icon(doc, 'labels'));
   const options = make('div', null, { id: 'options' }); options.hidden = true;
   const gear = control('settings', null, () => setOptions(options.hidden), 'pt-small', 'Options'); gear.appendChild(icon(doc, 'settings'));
   gear.setAttribute('aria-expanded', 'false'); gear.setAttribute('aria-controls', 'options');
-  append(utilities, [labelToggle, gear]); toolbar.appendChild(utilities); append(scroll, [toolbar, actions]);
+  append(utilities, [labelToggle, gear]); toolbar.appendChild(utilities); append(scroll, [toolbar, ...sections]);
   const status = control('status', null, () => {
     details.hidden = !details.hidden; status.setAttribute('aria-expanded', String(!details.hidden));
   }, 'pt-status', 'Show operation details');
@@ -88,10 +97,15 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   append(options, [helpButton, help]);
   [
     'Photoshop Tool ' + version + ' · Made by Nasaat',
-    'Smart Object extracts the current pixel selection from one selected pixel layer. With no suitable layer, it first stamps the visible composition. Without a pixel selection, it uses the full canvas.',
+    'Extract + PNG extracts the current pixel selection from one selected pixel layer. With no suitable layer, it first stamps the visible composition. Without a pixel selection, it uses the full canvas.',
     'Original layers stay editable. Temporary composite layers/channels are removed; the new Smart Object stays in the PSD and its contents remain open. PNG + Copy inside them updates the same export in this session.',
     'Copy copies all visible layers as one full-canvas image, ignoring the current selection. It saves no file and also works without a saved PSD.',
     'PNG + Copy saves the PNG and copies the same prepared composition. The optional PNG only tool keeps the clipboard unchanged.',
+    'Smart Object converts selected layers in place. With no selected layer, it stamps the visible composition without merging originals. An existing Smart Object is reused. These layer tools do not export or open contents.',
+    'Camera Raw uses the same Smart Object target and opens the native filter dialog. Choose OK to apply a Smart Filter. Cancel rolls back this command. RGB / Grayscale, 8 / 16 bit only.',
+    'Black mask adds a full Hide All pixel mask to one unlocked selected layer. Existing masks are kept. Paint with white to reveal the image.',
+    'Curves and Hue / Sat add neutral adjustments clipped above one selected layer or group. Use Photoshop Properties to adjust them. Existing clipping chains follow Photoshop semantics.',
+    'Solid Color opens the native color picker and adds an editable fill. Layer tools work in unsaved documents without export-folder access.',
     'Full resolution · RGB / Grayscale · 8 / 16 bit. The source PSD is not automatically saved.',
     'PNG files go beside the project automatically. Native image paste depends on the receiving application.',
     'Copy report replaces the clipboard with diagnostic text. Reports contain filenames, the last eight operations and recent session events. Nothing is sent automatically.'
@@ -106,6 +120,11 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     let count = 0;
     tools.forEach(tool => { const visible = isVisible(tool); toolNodes[tool.id].hidden = !visible; if (visible) count++; });
     root.setAttribute('data-tool-layout', count > 3 ? 'grid' : 'row');
+    for (const group of groups.values()) {
+      const visible = group.tools.filter(isVisible).length;
+      group.section.hidden = visible === 0;
+      group.actions.setAttribute('data-layout', visible > 3 ? 'grid' : 'row');
+    }
   }
   function applyAppearance(patch, initial) {
     appearance = { ...appearance, ...patch };

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.5
+
+- Add six registry-driven layer commands: Smart Object, Smart Object + Camera Raw, full black layer mask, clipped Curves, clipped Hue/Saturation and Solid Color fill with native color picker.
+- Convert selected layers/groups in place; with no selected layers, stamp the full visible composite nondestructively. Reuse existing Smart Objects; convert-only no-ops without a new history state. Keep exact pixel selections, original layers and document focus; do not open contents, export or use clipboard/folder access.
+- Share safe numeric-ID layer/stamp helpers with the existing extraction pipeline. Re-resolve after native ID replacement/consumed helpers; keep owned selection channels and history rollback bounded to the actual document.
+- Honor explicit native dialog options and interactive modal execution for Camera Raw/color picker. Apply Camera Raw as a Smart Filter; classify native cancellation, roll back the command and keep export-specific retry instructions out of layer-only errors.
+- Add clipped adjustments directly above the chosen layer/group, guard existing pixel masks, require an unlocked Background for a new black mask, and preserve clipping chains when inserting an unclipped fill. No automatic mode/depth changes.
+- Separate Export & copy / Layers in the compact rounded responsive panel; rename the existing export workflow to Extract + PNG without changing its command ID. Preserve saved visibility/appearance, scroll, resize limits and installation identity.
+- Add mocked layer-ID/group/selection/clipping/dialog/cancellation/rollback and UI regressions. Build/source/CCX checks do not replace native Photoshop/Windows verification; host acceptance remains outstanding.
+
 ## 0.3.4
 
 - Fix a stale-layer-handle path in Smart Object composite preparation: native Stamp Visible can consume the temporary helper, so cache primitive IDs, re-resolve live layers after each mutation and skip cleanup when an owned helper is already absent.

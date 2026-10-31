@@ -31,7 +31,7 @@ module.exports = [{
 
 `id` is stable lowercase dotted text. `commandId` must be unique and is emitted into the generated manifest. Avoid changing old IDs: Photoshop Actions may refer to them. Existing `exportCopy` and `selectionSmart` are preserved. Metadata changes automatically reach the panel and menu during build.
 
-Optional `emphasis: 'primary'` gives an important tool the primary neutral surface without hardcoded IDs in the UI. Labels are shown by default after the 0.3.3 design refresh; keep them short and provide a descriptive tooltip. More than three visible tools form two columns. All icons use a 24×24 viewBox; keep geometry inside it. Appearance refresh runs once and preserves future explicit overrides.
+Optional `emphasis: 'primary'` gives an important tool the primary neutral surface without hardcoded IDs in the UI. Labels are shown by default after the 0.3.3 design refresh; keep them short and provide a descriptive tooltip. Optional `group` metadata assigns a tool section (Export & copy / Layers). Each section with more than three visible tools forms two columns; empty sections are hidden. All icons use a 24×24 viewBox; keep geometry inside it. Appearance refresh runs once and preserves future explicit overrides.
 
 `readOptions(draft)` is optional and runs before execution. Use it for tool-specific validation; an unrelated invalid PNG compression field must not prevent a different tool. A tool without this method receives an empty options object. Keep persistent tool settings under a versioned tool-specific key, retaining the original PNG keys.
 
@@ -39,11 +39,13 @@ Optional `emphasis: 'primary'` gives an important tool the primary neutral surfa
 
 For mutations, use `ctx.services.host.modal(name, async executionContext => …)` and the documented host APIs. Resolve required file Entries/pickers before modal work and revalidate document/layer IDs afterward. The runner serializes all registered tools, but does not automatically put read-only work or file dialogs into a modal scope.
 
-`core/host.js` exposes checked `batch()`, cancellation, temporary-document ownership/closing and `withHistory`. History is per document and does not undo exported files. Use operation-owned duplicates for rendering/conversion; never flatten/rasterize the original incidentally. Keep cleanup errors from masking the primary operation error.
+`core/host.js` exposes checked `batch()` (defaults to no dialogs, preserves an explicit descriptor `_options.dialogOptions`), cancellation, temporary-document ownership/closing and `withHistory`. Use `modal(name, work, { interactive: true })` only for native dialogs/workspaces that accept input, and revalidate focus/IDs after interaction. History is per document and does not undo exported files. Use operation-owned duplicates for rendering/conversion; never flatten/rasterize the original incidentally. Keep cleanup errors from masking the primary operation error.
 
 `core/output-access.js` uses the user-requested `fullAccess` permission and `getEntryWithUrl` to resolve and verify exactly the saved project's folder, with no folder picker or token persistence. It re-resolves each operation so moves/disappearing paths are checked. `core/safe-output.js` stages replacement with backup/restore handling. Do not turn I/O errors into “file missing” or write arbitrary paths from untrusted tool input. A backup mechanism is not a transaction or a lock against other applications. Only the explicit report-copy action uses the text clipboard API; no clipboard reads are allowed.
 
 Long-lived services are injected in `main.js`. A complex tool can add its own service there rather than hiding host state inside the registry or importing global Photoshop objects from pure logic. Avoid timers, polling, whole-panel replacement and global CSS. Controls must preserve keyboard/disabled states and long labels; scope styles beneath `#photoshoptool`.
+
+`core/layers.js` shares numeric-ID lookup, checked substeps, owned-layer cleanup and Stamp Visible. Never keep a Layer wrapper across structural mutations. `tools/layers/service.js` provides independent layer commands with one history boundary and acknowledges effects only after commit. Native Cancel (-128 or the color picker's `value: false`) is reported as cancelled, with no PNG recovery advice.
 
 `tools/png/smart-object.js` owns selection/composite planning and the parent history boundary. It saves the exact selection, stamps with `duplicate:true`, validates preservation of original IDs, removes only owned intermediates and opens/registers a new contents document. The PNG service owns file export/clipboard afterward, so an export error does not roll back an already committed Smart Object.
 

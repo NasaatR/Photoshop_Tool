@@ -10,12 +10,13 @@ const { createDiagnostics, formatReport, copyReport } = require('./core/diagnost
 const { createPreferences, readExportDraft } = require('./core/preferences.js');
 const { createOutputAccess } = require('./core/output-access.js');
 const { createPNGService } = require('./tools/png/service.js');
+const { createLayerService } = require('./tools/layers/service.js');
 const { createPanel } = require('./ui/panel.js');
 const preferences = createPreferences(localStorage);
 const diagnostics = createDiagnostics();
 const environment = getEnvironment(ps, uxp);
 const host = createHost(ps, environment);
-const services = { host, png: createPNGService(host, createOutputAccess(uxp.storage.localFileSystem), file => file.read({ format: uxp.storage.formats.binary })) };
+const services = { host, layers: createLayerService(host), png: createPNGService(host, createOutputAccess(uxp.storage.localFileSystem), file => file.read({ format: uxp.storage.formats.binary })) };
 let draft = preferences.export(), appearance = preferences.refreshAppearance(preferences.appearance()), visibility = preferences.exposeCopyButton(preferences.visibility());
 let view = null, uiBusy = false, pending = preferences.problems().length ? [preferences.problems().join('\n'), 'error'] : ['Ready', 'ready'];
 const roots = new WeakSet(), lifecycle = { creates: 0, shows: 0, destroys: 0 };

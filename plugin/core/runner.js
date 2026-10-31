@@ -28,13 +28,15 @@ function createRunner(registry, createContext, publish, version, diagnostics) {
       const result = record.message || (record.pngSaved && record.imageCopied ? 'Saved + copied' : record.pngSaved ? 'PNG saved' : record.imageCopied ? 'Image copied' : 'Done');
       progress(result + (record.width ? ' · ' + record.width + ' × ' + record.height : '') + (record.filename ? '\n' + record.filename : '') + (record.warnings.length ? '\n' + record.warnings.join('\n') : ''), 'success');
     } catch (e) {
-      record.status = 'error'; record.error = String(e && e.message != null ? e.message : e);
+      const cancelled = e && e.cancelled === true;
+      record.status = cancelled ? 'cancelled' : 'error'; record.error = String(e && e.message != null ? e.message : e);
       record.failure = errorDetails(e); record.code = record.failure.number ?? record.failure.code ?? null;
       record.stack = record.failure.stack || '';
-      if (diagnostics) diagnostics.error(id, e);
+      if (diagnostics && !cancelled) diagnostics.error(id, e);
       let partial = record.pngSaved ? 'PNG saved; copying did not finish.\n' : record.imageCopied ? 'Image copied; PNG saving did not finish.\n' : '';
-      if (record.smartObjectCreated) partial += 'Smart Object created. Retry PNG + Copy inside its contents.\n';
-      progress(partial + record.error + (record.warnings.length ? '\n' + record.warnings.join('\n') : ''), 'error');
+      if (record.smartObjectCreated && id === 'png.selection-smart') partial += 'Smart Object created. Retry PNG + Copy inside its contents.\n';
+      else if (record.smartObjectCreated) partial += 'Smart Object created.\n';
+      progress(partial + (cancelled ? 'Cancelled' : record.error) + (record.warnings.length ? '\n' + record.warnings.join('\n') : ''), cancelled ? 'ready' : 'error');
     } finally { record.durationMs = Date.now() - started; active = false; if (diagnostics) diagnostics.operation(record); }
     return record;
   }

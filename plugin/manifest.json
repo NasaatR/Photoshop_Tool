@@ -2,7 +2,7 @@
   "manifestVersion": 5,
   "id": "com.nasaat.pngrelay",
   "name": "Photoshop Tool",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "main": "main.js",
   "host": {
     "app": "PS",
@@ -33,11 +33,11 @@
       },
       "preferredDockedSize": {
         "width": 240,
-        "height": 184
+        "height": 350
       },
       "preferredFloatingSize": {
         "width": 252,
-        "height": 194
+        "height": 360
       }
     },
     {
@@ -66,6 +66,48 @@
       "id": "exportPngOnly",
       "label": {
         "default": "Export PNG Only"
+      }
+    },
+    {
+      "type": "command",
+      "id": "convertSmartObject",
+      "label": {
+        "default": "Convert to Smart Object"
+      }
+    },
+    {
+      "type": "command",
+      "id": "smartCameraRaw",
+      "label": {
+        "default": "Smart Object + Camera Raw"
+      }
+    },
+    {
+      "type": "command",
+      "id": "addBlackMask",
+      "label": {
+        "default": "Add Black Layer Mask"
+      }
+    },
+    {
+      "type": "command",
+      "id": "addClippedCurves",
+      "label": {
+        "default": "Curves · Clipped to Layer"
+      }
+    },
+    {
+      "type": "command",
+      "id": "addClippedHueSaturation",
+      "label": {
+        "default": "Hue/Saturation · Clipped to Layer"
+      }
+    },
+    {
+      "type": "command",
+      "id": "addSolidColor",
+      "label": {
+        "default": "Add Solid Color Fill"
       }
     }
   ]
