@@ -1,9 +1,11 @@
 'use strict';
+const { normalizeOrder } = require('./tool-order.js');
 const EXPORT_KEY = 'pngrelay.settings.v1';
 const APPEARANCE_KEY = 'pngrelay.appearance.v1';
 const TOOLS_KEY = 'photoshoptool.tools.v1';
 const COPY_BUTTON_KEY = 'photoshoptool.copyButton.v1';
 const DESIGN_KEY = 'photoshoptool.designRefresh.v1';
+const ORDER_KEY = 'photoshoptool.order.v1';
 function normalizeExport(raw) {
   const r = raw && raw.schema === 1 ? raw : {};
   return { schema: 1, overwrite: r.overwrite !== false, srgb: r.srgb === true,
@@ -25,6 +27,8 @@ function createPreferences(storage) {
   return {
     problems: () => problems.slice(),
     export: () => normalizeExport(read(EXPORT_KEY)), appearance: () => normalizeAppearance(read(APPEARANCE_KEY)),
+    order() { const raw = read(ORDER_KEY); return raw && raw.schema === 1 ? normalizeOrder(raw.ids) : []; },
+    saveOrder(value) { const next = normalizeOrder(value); storage.setItem(ORDER_KEY, JSON.stringify({ schema: 1, ids: next })); return next; },
     saveExport(value) { const next = normalizeExport(value); storage.setItem(EXPORT_KEY, JSON.stringify(next)); return next; },
     saveAppearance(value) { const next = normalizeAppearance(value); storage.setItem(APPEARANCE_KEY, JSON.stringify(next)); return next; },
     refreshAppearance(value) {

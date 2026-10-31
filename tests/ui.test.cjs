@@ -169,6 +169,26 @@ test('compact layer toolbar preserves icon-only appearance and tool visibility t
   assert.equal(find(f.root, 'png.export-copy').parentNode.getAttribute('data-density'), 'standard');
   assert.deepEqual(JSON.parse(f.stored.get('pngrelay.appearance.v1')), appearance);
   await find(f.root, 'report').fire('click'); const report = f.report();
-  assert.equal(report.version, '1.0.0'); assert.equal(report.displayVersion, '1.0');
+  assert.equal(report.version, '1.1.0'); assert.equal(report.displayVersion, '1.1');
   f.setup.panels.relayPanel.hide(); f.setup.panels.relayPanel.destroy();
+});
+test('Arrange never runs a Photoshop tool and updates the actual toolbar before saving', async () => {
+  const { view, runs } = panel(); const actions = view.elements['layers.smart-object'].parentNode;
+  await view.elements.arrange.fire('click'); assert.equal(view.elements.arrangeBar.hidden, false);
+  await view.elements['layers.smart-object'].fire('click'); await view.elements['layers.curves'].fire('click');
+  assert.equal(runs.length, 0); assert.ok(actions.children.indexOf(view.elements['layers.smart-object']) > actions.children.indexOf(view.elements['layers.curves']));
+  await view.elements.arrangeReset.fire('click'); assert.equal(actions.children[0].id, 'layers.smart-object');
+  await view.elements.arrangeDone.fire('click'); await view.elements['layers.smart-object'].fire('click'); assert.deepEqual(runs, ['layers.smart-object']); view.dispose();
+});
+test('button order survives recreation/reload and keeps export settings and visibility', async () => {
+  const f = mainFixture(); f.setup.panels.relayPanel.create(f.root);
+  await find(f.root, 'arrange').fire('click'); await find(f.root, 'layers.smart-object').fire('click'); await find(f.root, 'layers.curves').fire('click');
+  const saved = JSON.parse(f.stored.get('photoshoptool.order.v1')); assert.equal(saved.schema, 1);
+  assert.ok(saved.ids.indexOf('layers.smart-object') > saved.ids.indexOf('layers.curves')); assert.equal(f.stored.has('pngrelay.settings.v1'), false);
+  f.setup.panels.relayPanel.destroy();
+  const reloaded = mainFixture({ stored: Object.fromEntries(f.stored) }); reloaded.setup.panels.relayPanel.create(reloaded.root);
+  const actions = find(reloaded.root, 'layers.smart-object').parentNode;
+  assert.ok(actions.children.indexOf(find(reloaded.root, 'layers.smart-object')) > actions.children.indexOf(find(reloaded.root, 'layers.curves')));
+  await find(reloaded.root, 'report').fire('click'); assert.deepEqual(reloaded.report().interface.order, saved.ids);
+  assert.ok(reloaded.report().interface.tooltip); reloaded.setup.panels.relayPanel.destroy();
 });

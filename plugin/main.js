@@ -17,6 +17,7 @@ const diagnostics = createDiagnostics();
 const environment = getEnvironment(ps, uxp);
 const host = createHost(ps, environment);
 const services = { host, layers: createLayerService(host), png: createPNGService(host, createOutputAccess(uxp.storage.localFileSystem), file => file.read({ format: uxp.storage.formats.binary })) };
+let order = preferences.order();
 let draft = preferences.export(), appearance = preferences.refreshAppearance(preferences.appearance()), visibility = preferences.exposeCopyButton(preferences.visibility());
 let view = null, uiBusy = false, pending = preferences.problems().length ? [preferences.problems().join('\n'), 'error'] : ['Ready', 'ready'];
 const roots = new WeakSet(), lifecycle = { creates: 0, shows: 0, destroys: 0 };
@@ -24,7 +25,7 @@ preferences.problems().forEach(message => diagnostics.event('warning', 'preferen
 function status(text, state = 'working') { pending = [text, state]; if (view) view.status(text, state, ps.app.preferences.general.exportClipboard !== true); }
 const runner = createRunner(registry, context => ({ ...context, services }), status, product.version, diagnostics);
 function failure(scope, error) { diagnostics.error(scope, error); status(error.message || String(error), 'error'); }
-function capture() { if (view) { draft = view.values(); appearance = view.appearance(); visibility = view.visibility(); } }
+function capture() { if (view) { draft = view.values(); appearance = view.appearance(); visibility = view.visibility(); order = view.order(); } }
 function options() { capture(); return readExportDraft(draft); }
 function disable(value) { uiBusy = value; if (view) view.disable(value); }
 async function invoke(id, menu) {
@@ -47,7 +48,7 @@ function reportText() {
   try { platform = navigator.platform || 'unknown'; } catch (_) {}
   return formatReport({ schema: 2, product: product.name, version: product.version, displayVersion: product.displayVersion, generatedAt: new Date().toISOString(), photoshop: environment.photoshop, environment, platform,
     status: pending[0], statusState: pending[1], exportClipboard: ps.app.preferences.general.exportClipboard === true, lastOperation: runner.report(),
-    interface: { ...lifecycle, appearance, visibility, width: view ? view.root.clientWidth : null, height: view ? view.root.clientHeight : null, backgroundPolling: false, animations: false },
+    interface: { ...lifecycle, appearance, visibility, order, tooltip: view ? view.tooltipReport() : null, width: view ? view.root.clientWidth : null, height: view ? view.root.clientHeight : null, backgroundPolling: false, animations: false },
     tools: registry.list().map(t => t.id), diagnostics: diagnostics.report() });
 }
 function reportStatus(text) { if (view) view.reportStatus(text); }
@@ -78,8 +79,9 @@ function mount(root) {
     run: id => invoke(id, false), external, report: () => report('file'), copyReport: () => report('clipboard'), draft: capture,
     changed() { try { draft = preferences.saveExport(options()); } catch (e) { failure('export preferences', e); } },
     appearance(value) { appearance = value; try { preferences.saveAppearance(value); } catch (e) { failure('appearance preferences', e); } },
+    order(value) { order = value; try { order = preferences.saveOrder(value); } catch (e) { failure('tool order preferences', e); } },
     visibility(value) { visibility = value; try { preferences.saveVisibility(value); } catch (e) { failure('tool visibility preferences', e); } }
-  }, product.displayVersion);
+  }, product.displayVersion, order);
   if (view.root.parentNode !== root) root.appendChild(view.root);
   view.disable(uiBusy); status(pending[0], pending[1]);
 }

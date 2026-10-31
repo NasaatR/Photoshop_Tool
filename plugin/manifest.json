@@ -2,7 +2,7 @@
   "manifestVersion": 5,
   "id": "com.nasaat.pngrelay",
   "name": "Photoshop Tool",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "main": "main.js",
   "host": {
     "app": "PS",

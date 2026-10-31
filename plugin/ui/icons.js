@@ -1,5 +1,6 @@
 'use strict';
 const paths = {
+  arrange: 'M7 2 3 6h3v6h2V6h3L7 2zm10 20 4-4h-3v-6h-2v6h-3l4 4zM12 4h9v2h-9V4zM3 18h9v2H3v-2z',
   smart: 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm0 2v14h14V5H5zm2 2h10v10H7V7zm2 2v6h6V9H9z',
   camera: 'M8 3h8l2 3h3v14H3V6h3l2-3zm1 2L7 8H5v10h14V8h-3l-2-3H9zm3 4a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4z',
   mask: 'M4 4h16v16H4V4zm2 2v12h12V6H6zm6 1a5 5 0 1 0 0 10V7z',

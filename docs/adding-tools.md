@@ -52,3 +52,5 @@ Long-lived services are injected in `main.js`. A complex tool can add its own se
 `plugin/product.json` and `plugin/manifest.json` are generated. Do not edit their versions/menu lists manually. `package.json.version` is the native x.y.0 source for personal display x.y (one-digit y, rollover 1.9 → 2.0); `scripts/version.cjs` derives display version and installer filename. `package.json` is the version source, and the command registry is the tool source. New platform capabilities/permissions require an explicit design decision; metadata cannot grant an API.
 
 The original project is https://github.com/NasaatR/Photoshop_Tool. Preserve applicable MIT notices in substantial reuse. `Made by Nasaat` is product branding, not an additional licensing condition.
+
+`core/tool-order.js` keeps stable-ID ordering within registry sections. `ui/reorder.js` implements explicit arrangement with drag, click and keyboard fallbacks; its callbacks move existing button nodes and persist once per completed move. New tools append in their section; do not reset saved order when adding a module. Dispose document listeners with the panel.

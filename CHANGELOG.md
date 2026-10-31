@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1 (native 1.1.0)
+
+- Fix premature tooltip dismissal paths: fit height into free space above/below the anchor rather than covering the hovered button, ignore child blur/layout events, reposition on real resize/scroll, retain pointer transfer and cancel stale timers. Cache geometry during pointer movement; include tooltip counters/last dismissal in reports.
+- Resolve all Layers command targets with native targetLayersIDs inside the modal scope. Validate IDs, target the owner layer and select component channels without reading a selected mask's DOM Channel properties. Preserve selection/masks and rollback semantics; invalid targets never broaden to composite input.
+- Keep an existing pixel mask as a successful no-op. Add mask-focused/unsupported-DOM and sequential Black mask → Curves → Hue/Saturation regressions.
+- Add Arrange buttons mode: internal mouse dragging, two-position clicking, keyboard arrows, Done/Escape and Reset order. Persist stable-ID order independently of appearance/visibility/export settings; keep sections, hidden tools and new-tool defaults. Reordering never executes tools and cleans up document listeners.
+- Native Photoshop validation of these fixes remains outstanding; mocked/source/build/installer checks are recorded separately.
+
 ## 1.0 (native 1.0.0)
 
 - Migrate the owner-requested release policy from 0.3.5 to personal sequential labels: 1.0, 1.1 … 1.9 → 2.0. Derive display/native metadata and installer names from package.json; preserve every issued package, plugin/command ID and preference key. JSON reports retain native version plus displayVersion.

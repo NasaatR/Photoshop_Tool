@@ -2,9 +2,11 @@
 const CSS = require('./styles.js');
 const { icon } = require('./icons.js');
 const { createTooltips } = require('./tooltips.js');
-function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handlers, version) {
+const { createReorder } = require('./reorder.js');
+function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handlers, version, orderDraft = []) {
   const elements = {}, controls = {}, toolNodes = {}, choices = {};
   let appearance = { ...appearanceDraft }, visibility = { ...visibilityDraft };
+  let arranger = null;
   let statusText = null, statusState = null, externalState = null;
   function make(tag, text, attrs) {
     const el = doc.createElement(tag);
@@ -21,13 +23,13 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     if (description) el.setAttribute('data-hint', description);
     hints.bind(el, () => ({ title: el.getAttribute('aria-label'), body: el.getAttribute('data-hint') }));
     if (label) el.appendChild(make('span', label));
-    const activate = () => { hints.dismiss(); if (!disabled) return callback(); };
+    const activate = event => { hints.dismiss(); if (!disabled) return callback(event); };
     el.addEventListener('click', activate);
     el.addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); if (!e.repeat) return activate(); }
+      if (e.key === 'Enter') { e.preventDefault(); if (!e.repeat) return activate(e); }
       if (e.key === ' ' || e.key === 'Spacebar') { e.preventDefault(); spaceDown = !disabled; }
     });
-    el.addEventListener('keyup', e => { if ((e.key === ' ' || e.key === 'Spacebar') && spaceDown) { e.preventDefault(); spaceDown = false; return activate(); } });
+    el.addEventListener('keyup', e => { if ((e.key === ' ' || e.key === 'Spacebar') && spaceDown) { e.preventDefault(); spaceDown = false; return activate(e); } });
     el.addEventListener('blur', () => { spaceDown = false; });
     controls[id] = value => {
       if (disabled === value) return;
@@ -39,7 +41,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   const root = make('div', null, { id: 'photoshoptool' }); root.appendChild(make('style', CSS));
   const hints = createTooltips(doc, root, handlers.tooltipTimers);
   const scroll = make('div', null, { class: 'pt-scroll' }); root.appendChild(scroll);
-  scroll.addEventListener('scroll', hints.dismiss);
+  scroll.addEventListener('scroll', hints.relayout);
   const toolbar = make('div', null, { class: 'pt-toolbar' }), sections = [];
   toolbar.appendChild(make('div', 'QUICK TOOLS', { class: 'pt-eyebrow' }));
   const groups = new Map();
@@ -51,16 +53,23 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
       append(section, [make('div', group, { class: 'pt-section-title' }), actions]);
       groups.set(group, { section, actions, tools: [] }); sections.push(section);
     }
-    const node = control(tool.id, null, () => handlers.run(tool.id), 'pt-action' + (tool.emphasis === 'primary' ? ' pt-primary' : ''), tool.title, tool.description);
+    const node = control(tool.id, null, event => { if (!arranger || !arranger.activate(tool.id, event)) return handlers.run(tool.id); }, 'pt-action' + (tool.emphasis === 'primary' ? ' pt-primary' : ''), tool.title, tool.description);
     append(node, [icon(doc, tool.icon), make('span', tool.label, { class: 'pt-caption' })]); toolNodes[tool.id] = node;
     groups.get(group).actions.appendChild(node); groups.get(group).tools.push(tool);
   });
   const utilities = make('div', null, { class: 'pt-tools' });
   const labelToggle = control('labels', null, () => applyAppearance({ labels: !appearance.labels }), 'pt-small', 'Show button labels', 'Switch between captions and icons only. Hover or focus any button for its full description.'); labelToggle.appendChild(icon(doc, 'labels'));
+  const arrange = control('arrange', null, () => arranger.setActive(!arranger.active), 'pt-small', 'Arrange buttons', 'Drag buttons within a section, pick two positions, or use arrow keys. Your order is saved automatically.'); arrange.appendChild(icon(doc, 'arrange'));
+  arrange.setAttribute('aria-pressed', 'false');
+  const arrangeBar = make('div', null, { id: 'arrangeBar', class: 'pt-arrange-bar' }); arrangeBar.hidden = true;
+  const arrangeHint = make('div', 'Drag, or pick a button and its new position. Arrow keys move it.', { id: 'arrangeHint', class: 'pt-hint', role: 'status', 'aria-live': 'polite' });
+  const arrangeActions = make('div', null, { class: 'pt-choice-group' });
+  append(arrangeActions, [control('arrangeDone', 'Done', () => arranger.setActive(false), 'pt-choice', 'Finish arranging buttons'), control('arrangeReset', 'Reset order', () => arranger.reset(), 'pt-choice', 'Restore default button order', 'Only the order changes. Visibility, appearance and export options are kept.')]);
+  append(arrangeBar, [arrangeHint, arrangeActions]);
   const options = make('div', null, { id: 'options' }); options.hidden = true;
   const gear = control('settings', null, () => setOptions(options.hidden), 'pt-small', 'Options', 'Export settings, tool visibility, appearance, usage and diagnostic reports.'); gear.appendChild(icon(doc, 'settings'));
   gear.setAttribute('aria-expanded', 'false'); gear.setAttribute('aria-controls', 'options');
-  append(utilities, [labelToggle, gear]); toolbar.appendChild(utilities); append(scroll, [toolbar, ...sections]);
+  append(utilities, [arrange, labelToggle, gear]); toolbar.appendChild(utilities); append(scroll, [toolbar, arrangeBar, ...sections]);
   const status = control('status', null, () => {
     details.hidden = !details.hidden; status.setAttribute('aria-expanded', String(!details.hidden));
   }, 'pt-status', 'Show operation details');
@@ -104,6 +113,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   append(options, [helpButton, help]);
   [
     'Photoshop Tool ' + version + ' · Made by Nasaat',
+    'Arrange buttons: use the arrow icon in the toolbar. Drag within a section, pick a button and its new position, or use arrow keys. Done/Escape ends arranging; Reset order keeps other settings.',
     'Extract + PNG extracts the current pixel selection from one selected pixel layer. With no suitable layer, it first stamps the visible composition. Without a pixel selection, it uses the full canvas.',
     'Original layers stay editable. Temporary composite layers/channels are removed; the new Smart Object stays in the PSD and its contents remain open. PNG + Copy inside them updates the same export in this session.',
     'Copy copies all visible layers as one full-canvas image, ignoring the current selection. It saves no file and also works without a saved PSD.',
@@ -120,11 +130,16 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   help.appendChild(control('copyReportHelp', 'Copy report', handlers.copyReport, 'pt-text', 'Copy a text report for sharing', 'Copies recent diagnostic text, replacing the image clipboard. Nothing is sent automatically.'));
   help.appendChild(control('report', 'Save report .txt', handlers.report, 'pt-text', 'Save a local text report', 'Choose a location for the diagnostic TXT file. The clipboard stays unchanged.'));
   root.appendChild(append(make('div', null, { class: 'pt-footer' }), [make('span', 'Made by Nasaat'), make('span', 'v' + version, { class: 'pt-version' })]));
-  root.addEventListener('keydown', e => { if (e.key === 'Escape' && hints.dismiss()) { e.preventDefault(); return; } if (e.key === 'Escape' && !options.hidden) { e.preventDefault(); setOptions(false); if (gear.focus) gear.focus(); } });
+  arranger = createReorder(doc, tools, toolNodes, orderDraft, {
+    apply(ordered) { for (const tool of ordered) groups.get(tool.group || 'Tools').actions.appendChild(toolNodes[tool.id]); },
+    save(ids) { if (handlers.order) handlers.order(ids); },
+    state(active, picked) { root.setAttribute('data-arranging', String(active)); arrangeBar.hidden = !active; arrange.setAttribute('aria-pressed', String(active)); hints.enable(!active); const text = picked ? 'Choose a new position in this section, drag, or use arrow keys.' : 'Drag, or pick a button and its new position. Arrow keys move it.'; if (arrangeHint.textContent !== text) arrangeHint.textContent = text; }
+  });
+  root.addEventListener('keydown', e => { if (e.key === 'Escape' && arranger.escape()) { e.preventDefault(); return; } if (e.key === 'Escape' && hints.dismiss()) { e.preventDefault(); return; } if (e.key === 'Escape' && !options.hidden) { e.preventDefault(); setOptions(false); if (gear.focus) gear.focus(); } });
   function setOptions(open) { hints.dismiss(); options.hidden = !open; gear.setAttribute('aria-expanded', String(open)); }
   function isVisible(tool) { return typeof visibility[tool.id] === 'boolean' ? visibility[tool.id] : tool.defaultVisible !== false; }
   function updateVisibility() {
-    hints.dismiss();
+    hints.dismiss(); if (arranger) arranger.cancel();
     let count = 0;
     tools.forEach(tool => { const visible = isVisible(tool); toolNodes[tool.id].hidden = !visible; if (visible) count++; });
     root.setAttribute('data-tool-layout', count > 3 ? 'grid' : 'row');
@@ -145,7 +160,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     if (!initial) handlers.appearance({ ...appearance });
   }
   updateVisibility(); applyAppearance({}, true);
-  return { root, elements, dismissHints: hints.dismiss, dispose: hints.destroy, appearance: () => ({ ...appearance }), visibility: () => ({ ...visibility }),
+  return { root, elements, dismissHints() { hints.dismiss('panel-hidden'); arranger.cancel(); }, tooltipReport: hints.report, order: arranger.order, dispose() { arranger.destroy(); hints.destroy(); }, appearance: () => ({ ...appearance }), visibility: () => ({ ...visibility }),
     values: () => ({ overwrite: elements.overwrite.checked, srgb: elements.srgb.checked, compression: String(compression.value) }),
     reportStatus(text) { elements.reportStatus.textContent = text; elements.reportStatus.hidden = !text; },
     status(text, state, needsExternal) {
@@ -160,9 +175,9 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
       if (needsExternal !== externalState) { external.hidden = !needsExternal; externalState = needsExternal; }
     },
     disable(value) {
-      if (value) hints.dismiss();
+      if (value) { hints.dismiss(); if (arranger.active) arranger.setActive(false); }
       root.setAttribute('aria-busy', String(value));
-      [...tools.map(t => t.id), 'external', 'report', 'copyReport', 'copyReportHelp'].forEach(id => controls[id](value));
+      [...tools.map(t => t.id), 'external', 'report', 'copyReport', 'copyReportHelp', 'arrange', 'arrangeDone', 'arrangeReset'].forEach(id => controls[id](value));
       for (const id of ['overwrite', 'srgb', 'compression']) if (elements[id].disabled !== value) elements[id].disabled = value;
     }
   };

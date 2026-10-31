@@ -5,12 +5,28 @@ function validate(doc) {
   if (!doc) throw new Error('Open a document first.');
   if (doc.quickMaskMode) throw new Error('Exit Quick Mask mode first.');
 }
-function oneLayer(doc) {
-  if (doc.activeLayers.length !== 1) throw new Error('Select exactly one target layer first.');
-  return doc.activeLayers[0].id;
+async function selectedLayerIDs(host, doc) {
+  const result = await host.batch({ _obj: 'get', _target: [{ _property: 'targetLayersIDs' }, { _ref: 'document', _id: doc.id }] });
+  const refs = result[0].targetLayersIDs;
+  if (!Array.isArray(refs)) throw new Error('Photoshop did not return the selected layer IDs.');
+  const ids = refs.map(ref => ref && ref._id);
+  const current = layersByID(doc, host.C);
+  if (ids.some(id => !Number.isInteger(id) || !current.has(id)) || new Set(ids).size !== ids.length) throw new Error('Photoshop returned an invalid target layer.');
+  return ids;
 }
-function selectComposite(doc, C) {
-  if (doc.activeChannels.length !== doc.componentChannels.length || doc.activeChannels.some(channel => channel.kind !== C.ChannelType.COMPONENT)) doc.activeChannels = doc.componentChannels;
+function oneLayer(ids) {
+  if (ids.length !== 1) throw new Error('Select exactly one target layer first.');
+  return ids[0];
+}
+function selectComposite(doc) {
+  // A layer mask is not a regular DOM Channel. Do not read its kind/name.
+  doc.activeChannels = doc.componentChannels;
+}
+async function prepareTargets(host, ctx, doc, selected) {
+  // Force the owner layer target even when its mask thumbnail was last active.
+  if (selected.length === 1) await host.batch({ _obj: 'select', _target: [{ _ref: 'layer', _id: selected[0] }], makeVisible: false });
+  else if (selected.length > 1) doc.activeLayers = selected.map(id => requireLayer(host, doc, id));
+  host.cancel(ctx); selectComposite(doc); host.cancel(ctx);
 }
 function newLayerID(host, doc, before) {
   const current = layersByID(doc, host.C);
@@ -108,15 +124,16 @@ function createLayerService(host) {
         const doc = host.byID(sourceID);
         validate(doc);
         if (!app.activeDocument || app.activeDocument.id !== sourceID) throw new Error('The active document changed. Run the tool again.');
-        const selected = doc.activeLayers.map(layer => layer.id);
+        const selected = await step(job, 'resolve-targets', 'Resolving the target layers…', () => selectedLayerIDs(host, doc));
+        job.record.targetResolution = 'native-layer-ids';
         job.record.source = { id: sourceID, mode: doc.mode, depth: doc.bitsPerChannel, activeLayerIDs: selected, selection: !!doc.selection.bounds };
         if (mode === 'camera') host.validate(doc, false);
-        const target = ['mask', 'curves', 'hue'].includes(mode) ? oneLayer(doc) : null;
+        const target = ['mask', 'curves', 'hue'].includes(mode) ? oneLayer(selected) : null;
         if (mode === 'mask' && requireLayer(host, doc, target).isBackgroundLayer) throw new Error('Unlock the Background layer before adding a black mask.');
         if (mode === 'mask' && requireLayer(host, doc, target).allLocked) throw new Error('Unlock the selected layer before adding a black mask.');
         if (mode === 'mask') {
           const result = await host.batch({ _obj: 'get', _target: [{ _property: 'hasUserMask' }, { _ref: 'layer', _id: target }] });
-          if (result[0].hasUserMask === true) throw new Error('This layer already has a pixel mask. Its mask was kept.');
+          if (result[0].hasUserMask === true) { job.record.layerID = target; job.record.maskReused = true; job.record.mutationCommitted = false; job.record.message = 'Existing mask kept'; return; }
           if (result[0].hasUserMask !== false) throw new Error('Could not check whether the layer already has a mask.');
         }
         if (mode === 'smart' && selected.length === 1 && requireLayer(host, doc, selected[0]).kind === C.LayerKind.SMARTOBJECT) {
@@ -125,7 +142,7 @@ function createLayerService(host) {
         }
         let effect;
         await withHistory(ctx, sourceID, 'Photoshop Tool: ' + names[mode], async () => {
-          selectComposite(doc, C);
+          await step(job, 'target-image', 'Targeting the layer image, not its mask…', () => prepareTargets(host, ctx, doc, selected));
           const selectionName = ['smart', 'camera', 'mask'].includes(mode) ? await preserveSelection(host, ctx, doc, job) : null;
           if (mode === 'smart' || mode === 'camera') {
             effect = await convert(host, ctx, doc, job, selected);

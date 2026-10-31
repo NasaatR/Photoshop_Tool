@@ -44,6 +44,10 @@ module.exports = `
 #photoshoptool .pt-actions[data-density="compact"] .pt-icon {width:18px;height:18px;}
 #photoshoptool.pt-labels .pt-actions[data-density="compact"] .pt-action {flex:1 0 calc(33.333% - 4px);width:auto;min-width:40px;max-width:calc(33.333% - 4px);height:var(--layer-label-size);padding:4px 2px;}
 #photoshoptool.pt-labels .pt-actions[data-density="compact"] .pt-caption {margin-top:4px;font-size:10px;line-height:11px;}
+#photoshoptool .pt-arrange-bar {padding:0 3px 4px;margin-bottom:5px;border-bottom:1px solid var(--border);}
+#photoshoptool[data-arranging="true"] .pt-action {cursor:grab;user-select:none;}
+#photoshoptool[data-arranging="true"] .pt-action[data-picked="true"] {border:2px solid var(--fg);background-color:var(--hover);}
+#photoshoptool[data-arranging="true"] .pt-action[data-drop="true"] {outline:2px solid var(--fg);outline-offset:-3px;}
 #photoshoptool .pt-tooltip {position:absolute;z-index:1000;overflow-y:auto;overflow-x:hidden;padding:9px 10px;border:1px solid var(--border);border-radius:var(--small-radius);background-color:var(--raised);color:var(--fg);font-size:11px;line-height:15px;white-space:normal;word-wrap:break-word;}
 #photoshoptool .pt-tooltip-title {font-weight:600;line-height:15px;}
 #photoshoptool .pt-tooltip-body {margin-top:4px;color:var(--muted);line-height:15px;white-space:pre-wrap;}

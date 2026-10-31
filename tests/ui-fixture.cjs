@@ -13,5 +13,10 @@ class Element {
   async fire(k, event = {}) { event.preventDefault ||= () => {}; for (const fn of this.listeners[k] || []) await fn(event); }
   set innerHTML(_) { throw new Error('HTML injection'); }
 }
-const makeDocument = () => { const d = { createElement: tag => new Element(tag, d), createElementNS: (_, tag) => new Element(tag, d) }; return d; };
+const makeDocument = () => {
+  const events = new Element('document');
+  const d = { createElement: tag => new Element(tag, d), createElementNS: (_, tag) => new Element(tag, d),
+    addEventListener: events.addEventListener.bind(events), removeEventListener: events.removeEventListener.bind(events), fire: events.fire.bind(events) };
+  return d;
+};
 module.exports = { Element, makeDocument };

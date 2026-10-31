@@ -45,7 +45,7 @@ function layerFixture(fail = {}) {
   function remove(id) { const layer = item(id); layer.children.slice().forEach(remove); siblings(layer.parent).splice(siblings(layer.parent).indexOf(id), 1); data.delete(id); active = active.filter(value => value !== id); }
   const doc = { id: 1, name: 'Untitled', path: '', width: 3168, height: 1782, mode: C.DocumentMode.RGB, bitsPerChannel: 8,
     quickMaskMode: false, componentChannels: [originalChannel], activeChannels: [originalChannel], channels: [originalChannel],
-    get layers() { return roots.map(wrapper); }, get activeLayers() { return active.map(wrapper); },
+    get layers() { return roots.map(wrapper); }, get activeLayers() { return active.map(wrapper); }, set activeLayers(layers) { active = layers.map(layer => layer.id); },
     selection: { bounds: { left: 2, top: 4, right: 100, bottom: 80 }, mask: [0, 32, 190, 255],
       async save(name) { events.push('saveSelection'); const saved = { name, kind: 'alpha', bounds: this.bounds, mask: this.mask, async remove() { events.push('removeChannel'); doc.channels = doc.channels.filter(channel => channel !== saved); } }; doc.channels.push(saved); doc.activeChannels = [saved]; },
       async deselect() { events.push('deselect'); this.bounds = null; this.mask = null; },
@@ -62,6 +62,7 @@ function layerFixture(fail = {}) {
     action: { async batchPlay(commands) {
       assert.equal(commands.length, 1); const c = commands[0]; descriptors.push(c); events.push(c._obj);
       if (fail.action === c._obj) return [{ _obj: 'error', result: fail.code || -1, message: 'Injected native failure' }];
+      if (c._obj === 'get' && c._target[0]._property === 'targetLayersIDs') return [{ targetLayersIDs: fail.layerRefs || active.map(id => ({ _ref: 'layer', _id: id })) }];
       if (c._obj === 'get') { assert.equal(c._target[0]._property, 'hasUserMask'); return [{ hasUserMask: item(c._target[1]._id).hasUserMask }]; }
       if (c._obj === 'select') {
         if (c._target[0]._ref === 'layer') { item(c._target[0]._id); active = [c._target[0]._id]; }

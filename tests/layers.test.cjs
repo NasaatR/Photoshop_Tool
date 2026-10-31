@@ -72,7 +72,7 @@ test('black mask always uses Hide All and preserves feathered selection, then se
 test('existing masks, locked/background layers and ambiguous targets are preserved and rejected clearly', async () => {
   for (const values of [{ hasUserMask: true, mask: 'existing' }, { isBackgroundLayer: true }, { allLocked: true }]) {
     const f = layerFixture(); Object.assign(f.data.get(f.original), values); const r = await f.run('layers.black-mask');
-    assert.equal(r.status, 'error'); assert.ok(!f.events.includes('suspend')); for (const [key, value] of Object.entries(values)) assert.equal(f.data.get(f.original)[key], value);
+    assert.equal(r.status, values.hasUserMask ? 'complete' : 'error'); assert.ok(!f.events.includes('suspend')); for (const [key, value] of Object.entries(values)) assert.equal(f.data.get(f.original)[key], value);
   }
   for (const tool of ['layers.black-mask', 'layers.curves', 'layers.hue-saturation']) for (const ids of [[], ['original', 'other']]) {
     const f = layerFixture(); f.select(ids.map(key => f[key])); const r = await f.run(tool); assert.equal(r.status, 'error'); assert.match(r.error, /exactly one/); assert.ok(!f.events.includes('suspend'));
@@ -133,4 +133,27 @@ test('layer actions resolve the layer even when its mask or an alpha channel is 
     const f = layerFixture(); f.doc.activeChannels = [{ name: 'Mask', kind: 'mask' }];
     const r = await f.run(id); assert.equal(r.status, 'complete', r.error);
   }
+});
+test('a mask channel with unsupported DOM getters still targets its owner for every layer tool', async () => {
+  for (const id of ['layers.smart-object', 'layers.camera-raw', 'layers.curves', 'layers.hue-saturation', 'layers.solid-color', 'layers.black-mask']) {
+    const f = layerFixture(), mask = { name: 'Layer mask', get kind() { throw new Error('Layer masks have no DOM Channel kind'); } };
+    f.data.get(f.original).hasUserMask = true; f.data.get(f.original).mask = 'painted mask';
+    let activeChannels = [mask]; Object.defineProperty(f.doc, 'activeChannels', { get: () => activeChannels, set: value => { activeChannels = value; } });
+    const descriptor = Object.getOwnPropertyDescriptor(f.doc, 'activeLayers');
+    Object.defineProperty(f.doc, 'activeLayers', { get() { if (activeChannels[0] === mask) throw new Error('DOM active layer unavailable with mask focus'); return descriptor.get.call(f.doc); }, set: descriptor.set });
+    const r = await f.run(id); assert.equal(r.status, 'complete', r.error); assert.equal(r.targetResolution, 'native-layer-ids');
+    assert.deepEqual(r.source.activeLayerIDs, [f.original]); assert.ok(!f.events.includes('mergeVisible'));
+  }
+});
+test('Black mask → Curves → Hue/Saturation works without manually switching mask thumbnails', async () => {
+  const f = layerFixture(); assert.equal((await f.run('layers.black-mask')).status, 'complete');
+  const curves = await f.run('layers.curves'); assert.equal(curves.status, 'complete', curves.error); assert.equal(curves.clippedToLayerID, f.original);
+  f.doc.activeChannels = [{ get kind() { throw new Error('Layer mask cannot be read'); } }];
+  const hue = await f.run('layers.hue-saturation'); assert.equal(hue.status, 'complete', hue.error); assert.equal(hue.clippedToLayerID, curves.layerID);
+  assert.equal(f.data.get(f.original).mask, 'black');
+});
+test('invalid native target references never broaden the operation to the visible composite', async () => {
+  const f = layerFixture({ layerRefs: [{ _ref: 'layer', _id: 9999 }] });
+  const r = await f.run('layers.smart-object'); assert.equal(r.status, 'error'); assert.equal(r.failure.step, 'resolve-targets');
+  assert.ok(!f.events.includes('suspend')); assert.ok(!f.events.includes('mergeVisible')); assert.equal(f.data.size, 2);
 });
