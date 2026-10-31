@@ -31,6 +31,8 @@ module.exports = [{
 
 `id` is stable lowercase dotted text. `commandId` must be unique and is emitted into the generated manifest. Avoid changing old IDs: Photoshop Actions may refer to them. Existing `exportCopy` and `selectionSmart` are preserved. Metadata changes automatically reach the panel and menu during build.
 
+Optional `emphasis: 'primary'` gives an important tool the primary neutral surface without hardcoded IDs in the UI. Labels are shown by default after the 0.3.3 design refresh; keep them short and provide a descriptive tooltip. More than three visible tools form two columns. All icons use a 24×24 viewBox; keep geometry inside it. Appearance refresh runs once and preserves future explicit overrides.
+
 `readOptions(draft)` is optional and runs before execution. Use it for tool-specific validation; an unrelated invalid PNG compression field must not prevent a different tool. A tool without this method receives an empty options object. Keep persistent tool settings under a versioned tool-specific key, retaining the original PNG keys.
 
 `execute(ctx)` receives validated `options`, `services`, an operation `record`, `progress(text)` and bounded `warn(text, optionalError)`. Progress is recorded as timed steps; include the current phase before a consequential operation. Pass cleanup exceptions as the second warning argument to preserve their codes/stacks separately from the primary failure. Await every asynchronous operation. Set `record.message` for a custom completion message. Record `pngSaved`, `imageCopied` or other effects only after the corresponding operation is acknowledged. Do not log private scene content, capability tokens or credentials. Diagnostics retain eight operation snapshots and 100 session events, exposed through Copy report/Save report.
@@ -42,6 +44,8 @@ For mutations, use `ctx.services.host.modal(name, async executionContext => …)
 `core/output-access.js` uses the user-requested `fullAccess` permission and `getEntryWithUrl` to resolve and verify exactly the saved project's folder, with no folder picker or token persistence. It re-resolves each operation so moves/disappearing paths are checked. `core/safe-output.js` stages replacement with backup/restore handling. Do not turn I/O errors into “file missing” or write arbitrary paths from untrusted tool input. A backup mechanism is not a transaction or a lock against other applications. Only the explicit report-copy action uses the text clipboard API; no clipboard reads are allowed.
 
 Long-lived services are injected in `main.js`. A complex tool can add its own service there rather than hiding host state inside the registry or importing global Photoshop objects from pure logic. Avoid timers, polling, whole-panel replacement and global CSS. Controls must preserve keyboard/disabled states and long labels; scope styles beneath `#photoshoptool`.
+
+`tools/png/smart-object.js` owns selection/composite planning and the parent history boundary. It saves the exact selection, stamps with `duplicate:true`, validates preservation of original IDs, removes only owned intermediates and opens/registers a new contents document. The PNG service owns file export/clipboard afterward, so an export error does not roll back an already committed Smart Object.
 
 `plugin/product.json` and `plugin/manifest.json` are generated. Do not edit their versions/menu lists manually. `package.json` is the version source, and the command registry is the tool source. New platform capabilities/permissions require an explicit design decision; metadata cannot grant an API.
 

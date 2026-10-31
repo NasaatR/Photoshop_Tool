@@ -14,7 +14,7 @@ const preferences = createPreferences(localStorage);
 const diagnostics = createDiagnostics();
 const host = createHost(ps);
 const services = { host, png: createPNGService(host, createOutputAccess(uxp.storage.localFileSystem), file => file.read({ format: uxp.storage.formats.binary })) };
-let draft = preferences.export(), appearance = preferences.appearance(), visibility = preferences.exposeCopyButton(preferences.visibility());
+let draft = preferences.export(), appearance = preferences.refreshAppearance(preferences.appearance()), visibility = preferences.exposeCopyButton(preferences.visibility());
 let view = null, uiBusy = false, pending = preferences.problems().length ? [preferences.problems().join('\n'), 'error'] : ['Ready', 'ready'];
 const roots = new WeakSet(), lifecycle = { creates: 0, shows: 0, destroys: 0 };
 preferences.problems().forEach(message => diagnostics.event('warning', 'preferences', message));

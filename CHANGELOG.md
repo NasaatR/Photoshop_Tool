@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.3
+
+- Extend Smart Object extraction: text/group/adjustment/smart/multiple/no-layer inputs use a native visible-composite stamp; no pixel selection uses the entire canvas. Preserve the direct selected-pixel-layer path when a selection exists.
+- Preserve exact selection/feathering with a short-lived alpha channel, move the owned stamp helper above root layers, require original layer IDs to survive stamping and remove owned intermediates. Retain exactly one new Smart Object; rollback preparation failures in one parent history step.
+- Separate Smart Object preparation into a bundled module, keep stable commands/permissions and record input/scope in diagnostic reports.
+- Refresh the compact panel with rounded filled tools, captions, normalized icon bounds, separate report icon, status indicator, grouped options and two-column layout for extra tools. Apply captions/rounding once while preserving theme/density and later overrides.
+- Add mocked coverage for composite cases, exact selection restoration, nested placement, empty/invalid stamp, cleanup failures, rollback/cancellation and appearance migration. Native Photoshop and visual acceptance remain outstanding.
+
 ## 0.3.2
 
 - Show a dedicated Copy image button beside PNG + Copy by default. Expose the previously optional Copy command once on update, preserving other settings and subsequent visibility choices.

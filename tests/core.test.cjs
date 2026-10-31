@@ -90,3 +90,10 @@ test('Copy visibility migration preserves export settings and surfaces storage f
   assert.equal(visible['png.copy-only'], true); assert.equal(visible['png.selection-smart'], false);
   assert.equal(s.getItem('pngrelay.settings.v1'), before); assert.match(prefs.problems().join('\n'), /visibility could not be saved/);
 });
+test('appearance refresh keeps export settings and user theme/density when storage fails', () => {
+  const s = storage({ 'pngrelay.settings.v1': { schema: 1, compression: 0, overwrite: false, srgb: false } }), prefs = createPreferences(s);
+  const before = s.getItem('pngrelay.settings.v1'); s.setItem = () => { throw new Error('Storage full'); };
+  const next = prefs.refreshAppearance({ schema: 1, theme: 'light', size: 'roomy', labels: false, corners: 'square' });
+  assert.equal(next.labels, true); assert.equal(next.corners, 'soft'); assert.equal(next.theme, 'light'); assert.equal(next.size, 'roomy');
+  assert.equal(s.getItem('pngrelay.settings.v1'), before); assert.match(prefs.problems().join('\n'), /appearance could not be saved/);
+});

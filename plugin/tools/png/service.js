@@ -1,7 +1,7 @@
 'use strict';
-const { withHistory } = require('../../core/host.js');
 const { findEntry, commitOutput } = require('../../core/safe-output.js');
-const { location, selectionName, dimensions } = require('./logic.js');
+const { location, dimensions } = require('./logic.js');
+const { selectionPlan, createSelectionSmartObject } = require('./smart-object.js');
 const { verifyPNG } = require('./verify-file.js');
 const { canonical } = require('../../core/output-access.js');
 function createPNGService(host, resolveFolder, readBinary) {
@@ -72,13 +72,6 @@ function createPNGService(host, resolveFolder, readBinary) {
       Object.assign(job.record, dimensions(scratch));
     } finally { await close(ctx, scratch, job.warn); }
   }
-  function validateSelection(doc) {
-    if (doc.activeLayers.length !== 1 || doc.activeLayers[0].kind !== C.LayerKind.NORMAL) throw new Error('Select exactly one raster (pixel) layer.');
-    if (!doc.selection.bounds) throw new Error('Make a pixel selection first.');
-    if (doc.activeChannels.length !== doc.componentChannels.length || doc.activeChannels.some(c => c.kind !== C.ChannelType.COMPONENT)) throw new Error('Select the RGB/Grayscale composite channel, not a mask or one channel.');
-    const b = doc.selection.bounds;
-    return { layer: doc.activeLayers[0].id, bounds: [b.left, b.top, b.right, b.bottom].join(',') };
-  }
   return { async run(mode, job) {
     if (!['document', 'selection', 'save', 'copy'].includes(mode)) throw new Error('Unknown PNG operation: ' + mode);
     const copy = mode !== 'save';
@@ -88,7 +81,7 @@ function createPNGService(host, resolveFolder, readBinary) {
       activeLayerIDs: source.activeLayers.map(layer => layer.id), selection: !!source.selection.bounds };
     host.validate(source, copy);
     const sourceID = source.id;
-    const selection = mode === 'selection' ? validateSelection(source) : null;
+    const selection = mode === 'selection' ? selectionPlan(source, C) : null;
     const root = mode === 'copy' ? null : roots.get(sourceID) || location(source.path);
     const folder = root ? await resolveFolder(root, job.progress) : null;
     job.progress('Waiting for Photoshop…');
@@ -99,29 +92,13 @@ function createPNGService(host, resolveFolder, readBinary) {
       try {
         if (mode === 'copy') return await copyOnly(ctx, source, job);
         if (selection) {
-          const current = validateSelection(source);
-          if (current.layer !== selection.layer || current.bounds !== selection.bounds) throw new Error('Layer or selection changed while preparing the export. Run the tool again.');
-          let content, targetName;
-          await withHistory(ctx, sourceID, 'Photoshop Tool: Selection to Smart Object', async () => {
-            job.progress('Creating Smart Object from selection…');
-            host.cancel(ctx); await host.batch({ _obj: 'copyToLayer' });
-            const copied = source.activeLayers[0];
-            if (!copied || copied.id === selection.layer) throw new Error('Layer via Copy did not create a layer.');
-            await host.batch({ _obj: 'newPlacedLayer' });
-            const smart = source.activeLayers[0];
-            if (!smart || smart.kind !== C.LayerKind.SMARTOBJECT) throw new Error('Photoshop did not create a Smart Object.');
-            targetName = selectionName(root.base, smart.name, smart.id);
-            const before = new Set(app.documents.map(d => d.id));
-            await host.batch({ _obj: 'placedLayerEditContents', documentID: sourceID, layerID: smart.id });
-            content = app.activeDocument;
-            if (!content || content.id === sourceID || before.has(content.id)) throw new Error('No new Smart Object contents document was opened.');
-            await host.own(ctx, content); host.validate(content, true);
-            job.record.smartLayerID = smart.id;
-          }, job.warn);
-          await ctx.hostControl.unregisterAutoCloseDocument(content.id);
+          const current = selectionPlan(source, C);
+          if (JSON.stringify(current) !== JSON.stringify(selection)) throw new Error('Layer or selection changed while preparing the export. Run the tool again.');
+          const { content, targetName } = await createSelectionSmartObject(host, ctx, source, selection, root, job);
           finishOn = content.id; job.record.smartObjectCreated = true;
           const mapped = { folder: root.folder, base: targetName.replace(/\.png$/i, '') };
           roots.set(content.id, mapped);
+          await ctx.hostControl.unregisterAutoCloseDocument(content.id);
           await exportImage(ctx, content, mapped, targetName, folder, true, job);
         } else await exportImage(ctx, source, root, root.base + '.png', folder, copy, job);
       } finally {

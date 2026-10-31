@@ -36,25 +36,25 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   }
   const root = make('div', null, { id: 'photoshoptool' }); root.appendChild(make('style', CSS));
   const scroll = make('div', null, { class: 'pt-scroll' }); root.appendChild(scroll);
-  const toolbar = make('div', null, { class: 'pt-toolbar' }), actions = make('div', null, { class: 'pt-actions' });
+  const toolbar = make('div', null, { class: 'pt-toolbar' }), actions = make('div', null, { class: 'pt-actions', role: 'group', 'aria-label': 'Image tools' });
+  toolbar.appendChild(make('div', 'QUICK TOOLS', { class: 'pt-eyebrow' }));
   tools.forEach(tool => {
-    const node = control(tool.id, null, () => handlers.run(tool.id), 'pt-action', tool.description || tool.title);
+    const node = control(tool.id, null, () => handlers.run(tool.id), 'pt-action' + (tool.emphasis === 'primary' ? ' pt-primary' : ''), tool.description || tool.title);
     append(node, [icon(doc, tool.icon), make('span', tool.label, { class: 'pt-caption' })]); toolNodes[tool.id] = node; actions.appendChild(node);
   });
-  toolbar.appendChild(actions);
   const utilities = make('div', null, { class: 'pt-tools' });
   const labelToggle = control('labels', null, () => applyAppearance({ labels: !appearance.labels }), 'pt-small', 'Show button labels'); labelToggle.appendChild(icon(doc, 'labels'));
   const options = make('div', null, { id: 'options' }); options.hidden = true;
   const gear = control('settings', null, () => setOptions(options.hidden), 'pt-small', 'Options'); gear.appendChild(icon(doc, 'settings'));
   gear.setAttribute('aria-expanded', 'false'); gear.setAttribute('aria-controls', 'options');
-  append(utilities, [labelToggle, gear]); toolbar.appendChild(utilities); scroll.appendChild(toolbar);
+  append(utilities, [labelToggle, gear]); toolbar.appendChild(utilities); append(scroll, [toolbar, actions]);
   const status = control('status', null, () => {
     details.hidden = !details.hidden; status.setAttribute('aria-expanded', String(!details.hidden));
   }, 'pt-status', 'Show operation details');
-  status.className = 'pt-status'; status.appendChild(make('span', 'Ready', { id: 'statusText', class: 'pt-status-text', role: 'status', 'aria-live': 'polite' }));
+  status.className = 'pt-status'; append(status, [make('span', '', { class: 'pt-dot', 'aria-hidden': 'true' }), make('span', 'Ready', { id: 'statusText', class: 'pt-status-text', role: 'status', 'aria-live': 'polite' })]);
   const details = make('div', '', { id: 'details', class: 'pt-detail' }); details.hidden = true;
   const statusRow = make('div', null, { class: 'pt-status-row' });
-  const copyLog = control('copyReport', null, handlers.copyReport, 'pt-small', 'Copy diagnostic report to clipboard'); copyLog.appendChild(icon(doc, 'copy'));
+  const copyLog = control('copyReport', null, handlers.copyReport, 'pt-small', 'Copy diagnostic text report'); copyLog.appendChild(icon(doc, 'report'));
   append(statusRow, [status, copyLog]);
   append(scroll, [statusRow, details, make('p', '', { id: 'reportStatus', class: 'pt-hint', role: 'status', 'aria-live': 'polite' })]); elements.reportStatus.hidden = true;
   const external = control('external', 'Enable external paste', handlers.external, 'pt-text', 'Enable Photoshop Export Clipboard'); external.hidden = true;
@@ -82,13 +82,14 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     values.forEach(([value, label]) => { const id = field + '-' + value; const node = control(id, label, () => applyAppearance({ [field]: value }), 'pt-choice', label); choices[id] = { node, field, value }; row.appendChild(node); });
     options.appendChild(row);
   }
-  group('size', [['compact', 'Compact'], ['roomy', 'Roomy']]); group('corners', [['square', 'Square'], ['soft', 'Soft']]); group('theme', [['host', 'Photoshop'], ['dark', 'Dark'], ['light', 'Light']]);
+  group('size', [['compact', 'Compact'], ['roomy', 'Roomy']]); group('corners', [['square', 'Square'], ['soft', 'Rounded']]); group('theme', [['host', 'Auto'], ['dark', 'Dark'], ['light', 'Light']]);
   const help = make('div', null, { id: 'help' }); help.hidden = true;
   const helpButton = control('helpToggle', 'Help & report', () => { help.hidden = !help.hidden; helpButton.setAttribute('aria-expanded', String(!help.hidden)); }, 'pt-text', 'Help and diagnostics'); helpButton.setAttribute('aria-expanded', 'false');
   append(options, [helpButton, help]);
   [
     'Photoshop Tool ' + version + ' · Made by Nasaat',
-    'PNG + Copy exports the full canvas beside the PSD. Smart Object extracts one selected pixel layer and leaves its contents open.',
+    'Smart Object extracts the current pixel selection from one selected pixel layer. With no suitable layer, it first stamps the visible composition. Without a pixel selection, it uses the full canvas.',
+    'Original layers stay editable. Temporary composite layers/channels are removed; the new Smart Object stays in the PSD and its contents remain open. PNG + Copy inside them updates the same export in this session.',
     'Copy copies all visible layers as one full-canvas image, ignoring the current selection. It saves no file and also works without a saved PSD.',
     'PNG + Copy saves the PNG and copies the same prepared composition. The optional PNG only tool keeps the clipboard unchanged.',
     'Full resolution · RGB / Grayscale · 8 / 16 bit. The source PSD is not automatically saved.',
@@ -97,11 +98,15 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   ].forEach(text => help.appendChild(make('p', text, { class: 'pt-hint' })));
   help.appendChild(control('copyReportHelp', 'Copy report', handlers.copyReport, 'pt-text', 'Copy a text report for sharing'));
   help.appendChild(control('report', 'Save report .txt', handlers.report, 'pt-text', 'Save a local text report'));
-  root.appendChild(make('div', 'Made by Nasaat', { class: 'pt-footer' }));
+  root.appendChild(append(make('div', null, { class: 'pt-footer' }), [make('span', 'Made by Nasaat'), make('span', 'v' + version, { class: 'pt-version' })]));
   root.addEventListener('keydown', e => { if (e.key === 'Escape' && !options.hidden) { e.preventDefault(); setOptions(false); if (gear.focus) gear.focus(); } });
   function setOptions(open) { options.hidden = !open; gear.setAttribute('aria-expanded', String(open)); }
   function isVisible(tool) { return typeof visibility[tool.id] === 'boolean' ? visibility[tool.id] : tool.defaultVisible !== false; }
-  function updateVisibility() { tools.forEach(tool => { toolNodes[tool.id].hidden = !isVisible(tool); }); }
+  function updateVisibility() {
+    let count = 0;
+    tools.forEach(tool => { const visible = isVisible(tool); toolNodes[tool.id].hidden = !visible; if (visible) count++; });
+    root.setAttribute('data-tool-layout', count > 3 ? 'grid' : 'row');
+  }
   function applyAppearance(patch, initial) {
     appearance = { ...appearance, ...patch };
     root.className = 'pt-root pt-' + appearance.theme + (appearance.labels ? ' pt-labels' : '') + (appearance.size === 'roomy' ? ' pt-roomy' : '') + (appearance.corners === 'soft' ? ' pt-soft' : '');
@@ -119,12 +124,14 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
         statusText = text; statusState = state; elements.statusText.textContent = String(text).split('\n')[0];
         elements.reportStatus.hidden = true;
         details.textContent = text; status.setAttribute('title', text); status.setAttribute('data-state', state);
+        statusRow.setAttribute('data-state', state);
         if (state === 'error') details.hidden = false;
         status.setAttribute('aria-expanded', String(!details.hidden));
       }
       if (needsExternal !== externalState) { external.hidden = !needsExternal; externalState = needsExternal; }
     },
     disable(value) {
+      root.setAttribute('aria-busy', String(value));
       [...tools.map(t => t.id), 'external', 'report', 'copyReport', 'copyReportHelp'].forEach(id => controls[id](value));
       for (const id of ['overwrite', 'srgb', 'compression']) if (elements[id].disabled !== value) elements[id].disabled = value;
     }

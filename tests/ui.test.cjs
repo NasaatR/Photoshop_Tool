@@ -63,7 +63,7 @@ test('tool visibility and appearance survive recreation separately from export s
   const f = mainFixture(); f.setup.panels.relayPanel.create(f.root);
   await find(f.root, 'labels').fire('click'); const checkbox = find(f.root, 'visible-png.copy-only'); checkbox.checked = true; await checkbox.fire('change');
   f.setup.panels.relayPanel.destroy(); f.setup.panels.relayPanel.show(f.root);
-  assert.equal(find(f.root, 'png.copy-only').hidden, false); assert.equal(JSON.parse(f.stored.get('pngrelay.appearance.v1')).labels, true); assert.equal(f.stored.has('pngrelay.settings.v1'), false);
+  assert.equal(find(f.root, 'png.copy-only').hidden, false); assert.equal(JSON.parse(f.stored.get('pngrelay.appearance.v1')).labels, false); assert.equal(f.stored.has('pngrelay.settings.v1'), false);
 });
 test('update exposes Copy once even with an old hidden override, then respects later hiding', async () => {
   const f = mainFixture({ stored: { 'photoshoptool.tools.v1': JSON.stringify({ schema: 1, visible: { 'png.copy-only': false, 'png.selection-smart': false } }) } });
@@ -71,6 +71,22 @@ test('update exposes Copy once even with an old hidden override, then respects l
   const checkbox = find(f.root, 'visible-png.copy-only'); checkbox.checked = false; await checkbox.fire('change');
   f.setup.panels.relayPanel.destroy(); f.setup.panels.relayPanel.show(f.root); assert.equal(find(f.root, 'png.copy-only').hidden, true);
   const reloaded = mainFixture({ stored: Object.fromEntries(f.stored) }); reloaded.setup.panels.relayPanel.create(reloaded.root); assert.equal(find(reloaded.root, 'png.copy-only').hidden, true);
+});
+test('design refresh enables rounded labeled tools once and retains theme, density and later choices', async () => {
+  const old = { schema: 1, labels: false, corners: 'square', size: 'roomy', theme: 'light' };
+  const f = mainFixture({ stored: { 'pngrelay.appearance.v1': JSON.stringify(old) } }); f.setup.panels.relayPanel.create(f.root);
+  let saved = JSON.parse(f.stored.get('pngrelay.appearance.v1'));
+  assert.equal(saved.labels, true); assert.equal(saved.corners, 'soft'); assert.equal(saved.theme, 'light'); assert.equal(saved.size, 'roomy');
+  await find(f.root, 'labels').fire('click'); await find(f.root, 'corners-square').fire('click');
+  const next = mainFixture({ stored: Object.fromEntries(f.stored) }); next.setup.panels.relayPanel.create(next.root);
+  saved = JSON.parse(next.stored.get('pngrelay.appearance.v1')); assert.equal(saved.labels, false); assert.equal(saved.corners, 'square'); assert.equal(saved.theme, 'light');
+});
+test('rounded toolbar exposes distinct image/report actions, grid layout and busy state', async () => {
+  const { view } = panel(); assert.equal(view.root.attributes['data-tool-layout'], 'row');
+  view.elements['visible-png.export-only'].checked = true; await view.elements['visible-png.export-only'].fire('change');
+  assert.equal(view.root.attributes['data-tool-layout'], 'grid'); view.disable(true); assert.equal(view.root.attributes['aria-busy'], 'true');
+  assert.notEqual(view.elements['png.copy-only'].attributes['aria-label'], view.elements.copyReport.attributes['aria-label']);
+  for (const node of [view.elements['png.selection-smart'].children[0], view.elements.settings.children[0]]) assert.equal(node.attributes.viewBox, '0 0 24 24');
 });
 test('local diagnostics include tool IDs and lifecycle counters without touching clipboard', async () => {
   const f = mainFixture(); f.setup.panels.relayPanel.create(f.root); await find(f.root, 'report').fire('click');

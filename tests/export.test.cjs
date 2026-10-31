@@ -94,15 +94,14 @@ test('selection export failure retains committed Smart Object for retry', async 
   assert.equal(r.status, 'error'); assert.equal(r.smartObjectCreated, true); assert.equal(f.source.layers.length, 2); assert.equal(f.app.activeDocument.name, 'Cutout.psb'); assert.equal(f.app.documents.length, 2);
 });
 test('preflight failures perform no document mutation', async () => {
-  for (const scenario of ['cloud', 'mode', 'depth', 'clipboard', 'selection', 'layer']) {
+  for (const scenario of ['cloud', 'mode', 'depth', 'clipboard', 'channel']) {
     const f = fixture();
     if (scenario === 'cloud') f.source.path = 'cloud:id';
     if (scenario === 'mode') f.source.mode = 'CMYK';
     if (scenario === 'depth') f.source.bitsPerChannel = 'bitDepth32';
     if (scenario === 'clipboard') f.app.preferences.general.exportClipboard = false;
-    if (scenario === 'selection') f.source.selection.bounds = null;
-    if (scenario === 'layer') f.source.activeLayers[0].kind = f.C.LayerKind.SMARTOBJECT;
-    const r = await f.run(['selection', 'layer'].includes(scenario) ? 'png.selection-smart' : 'png.export-copy');
+    if (scenario === 'channel') f.source.activeChannels = [{ kind: 'alpha' }];
+    const r = await f.run(scenario === 'channel' ? 'png.selection-smart' : 'png.export-copy');
     assert.equal(r.status, 'error', scenario); assert.ok(!f.events.includes('modal'), scenario); assert.equal(f.files.size, 0);
   }
 });
