@@ -89,7 +89,8 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   [
     'Photoshop Tool ' + version + ' · Made by Nasaat',
     'PNG + Copy exports the full canvas beside the PSD. Smart Object extracts one selected pixel layer and leaves its contents open.',
-    'PNG only keeps the clipboard unchanged. Copy only writes no PNG and works without a saved PSD.',
+    'Copy copies all visible layers as one full-canvas image, ignoring the current selection. It saves no file and also works without a saved PSD.',
+    'PNG + Copy saves the PNG and copies the same prepared composition. The optional PNG only tool keeps the clipboard unchanged.',
     'Full resolution · RGB / Grayscale · 8 / 16 bit. The source PSD is not automatically saved.',
     'PNG files go beside the project automatically. Native image paste depends on the receiving application.',
     'Copy report replaces the clipboard with diagnostic text. Reports contain filenames, the last eight operations and recent session events. Nothing is sent automatically.'

@@ -12,5 +12,4 @@ function selectionName(base, layer, id) {
   return prefix + tail;
 }
 function dimensions(doc) { return { width: doc.width, height: doc.height, depth: doc.bitsPerChannel }; }
-function verifyDimensions(expected, actual) { if (expected.width !== actual.width || expected.height !== actual.height || expected.depth !== actual.depth) throw new Error('Reopened PNG dimensions or depth differ. Output was not committed.'); }
-module.exports = { location, selectionName, dimensions, verifyDimensions };
+module.exports = { location, selectionName, dimensions };

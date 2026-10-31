@@ -1,12 +1,13 @@
 'use strict';
 const test = require('node:test'), assert = require('node:assert/strict');
 const { fixture } = require('./fixture.cjs');
-test('full export keeps 16-bit full canvas and source state; one PNG open', async () => {
+test('full export keeps 16-bit full canvas and source state without reopening PNG', async () => {
   const f = fixture(), selection = f.source.selection.bounds;
   const r = await f.run(); assert.equal(r.status, 'complete'); assert.equal(r.width, 4096); assert.equal(r.height, 2160); assert.equal(r.depth, 'bitDepth16');
   assert.equal(r.pngSaved, true); assert.equal(r.imageCopied, true); assert.equal(typeof r.durationMs, 'number');
   assert.equal(f.source.layers.length, 1); assert.equal(f.source.selection.bounds, selection); assert.equal(f.app.activeDocument, f.source); assert.equal(f.app.documents.length, 1);
-  assert.equal(f.events.filter(e => e === 'open').length, 1); assert.deepEqual([...f.files.keys()], ['Design.png']);
+  assert.equal(f.events.filter(e => e === 'open').length, 0); assert.equal(f.events.filter(e => e === 'duplicate').length, 1); assert.equal(f.events.filter(e => e === 'close').length, 1);
+  assert.equal(r.verification.method, 'PNG structure + CRC'); assert.equal(r.verification.bitDepth, 16); assert.equal(r.verification.decodedPixels, false); assert.deepEqual([...f.files.keys()], ['Design.png']);
 });
 test('PNG only works when Export Clipboard is disabled and does not copy', async () => {
   const f = fixture(); f.app.preferences.general.exportClipboard = false;
@@ -19,9 +20,39 @@ test('copy only works on an unsaved document without folder, disk, save or PNG o
   for (const event of ['save', 'createFile', 'open', 'list']) assert.ok(!f.events.includes(event), event);
   assert.equal(f.app.activeDocument, f.source); assert.equal(f.app.documents.length, 1);
 });
-test('reopened PNG mismatch does not replace an existing image or copy', async () => {
+test('saved PNG dimension mismatch does not replace an existing image or copy', async () => {
   const f = fixture({ badDimensions: true }); const old = new f.Entry('Design.png'); f.files.set(old.name, old);
   const r = await f.run(); assert.equal(r.status, 'error'); assert.equal(r.pngSaved, false); assert.equal(r.imageCopied, false); assert.equal(f.files.get('Design.png'), old); assert.equal(f.files.size, 1);
+});
+test('copy button copies the full visible multilayer composition once, ignoring selection and selected layer', async () => {
+  const f = fixture(); const first = f.source.layers[0], selection = f.source.selection.bounds;
+  f.source.layers.push({ id: 500, visible: true, kind: 'text' }, { id: 501, visible: false, kind: 'pixel' });
+  f.source.activeLayers = [f.source.layers[1]]; const active = f.source.activeLayers;
+  const r = await f.run('png.copy-only'); assert.equal(r.status, 'complete'); assert.equal(f.copied.length, 1);
+  assert.deepEqual(f.copied[0].composition, [first.id, 500]); assert.equal(f.copied[0].width, 4096); assert.equal(f.copied[0].height, 2160); assert.equal(f.copied[0].selection, null);
+  assert.equal(f.source.selection.bounds, selection); assert.equal(f.source.activeLayers, active); assert.equal(f.source.layers.length, 3);
+  assert.equal(f.files.size, 0); assert.equal(f.folderCalls(), 0); assert.ok(!f.events.includes('read'));
+});
+test('PNG + Copy copies from the same prepared composition after file validation', async () => {
+  const f = fixture(); const r = await f.run(); assert.equal(r.status, 'complete');
+  assert.equal(f.copied.length, 1); assert.notEqual(f.copied[0].docID, f.source.id); assert.equal(f.copied[0].selection, null);
+  assert.ok(f.events.indexOf('read') < f.events.indexOf('copy')); assert.ok(f.events.indexOf('copy') < f.events.indexOf('close')); assert.ok(f.events.indexOf('close') < f.events.indexOf('commit'));
+});
+test('PNG integrity/depth/read failures preserve previous output and leave clipboard untouched', async () => {
+  for (const fail of [{ corruptPNG: true }, { badDepth: true }, { read: true }]) {
+    const f = fixture(fail), old = new f.Entry('Design.png'); f.files.set(old.name, old);
+    const r = await f.run(); assert.equal(r.status, 'error'); assert.equal(r.pngSaved, false); assert.equal(r.imageCopied, false); assert.equal(f.files.get('Design.png'), old);
+    assert.equal(f.files.size, 1); assert.equal(f.app.activeDocument, f.source); assert.equal(f.app.documents.length, 1);
+  }
+});
+test('PNG + Copy retains full size and native 8/16-bit depth in RGB and Grayscale', async () => {
+  for (const gray of [false, true]) for (const sixteen of [false, true]) {
+    const f = fixture(); f.source.mode = gray ? f.C.DocumentMode.GRAYSCALE : f.C.DocumentMode.RGB;
+    f.source.bitsPerChannel = sixteen ? f.C.BitsPerChannelType.SIXTEEN : f.C.BitsPerChannelType.EIGHT;
+    const r = await f.run(); assert.equal(r.status, 'complete'); assert.equal(r.pngSaved, true); assert.equal(r.imageCopied, true);
+    assert.equal(r.verification.bitDepth, sixteen ? 16 : 8); assert.equal(r.verification.colorType, gray ? 4 : 6);
+    assert.equal(r.width, 4096); assert.equal(r.height, 2160); assert.equal(r.depth, f.source.bitsPerChannel); assert.equal(f.app.activeDocument, f.source);
+  }
 });
 test('failed save preserves original export and closes operation-owned documents', async () => {
   const f = fixture({ save: true }); const old = new f.Entry('Design.png'); f.files.set(old.name, old);

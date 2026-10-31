@@ -82,3 +82,11 @@ test('unreadable preferences surface a bounded problem without deleting stored d
   const s = storage(); s.getItem = () => '{bad json';
   const prefs = createPreferences(s); prefs.export(); assert.equal(prefs.problems().length, 1); assert.equal(s.values.size, 0);
 });
+test('Copy visibility migration preserves export settings and surfaces storage failure without blocking the button', () => {
+  const s = storage({ 'pngrelay.settings.v1': { schema: 1, compression: 0, overwrite: false, srgb: false } });
+  const before = s.getItem('pngrelay.settings.v1'), prefs = createPreferences(s);
+  s.setItem = () => { throw new Error('Storage full'); };
+  const visible = prefs.exposeCopyButton({ 'png.copy-only': false, 'png.selection-smart': false });
+  assert.equal(visible['png.copy-only'], true); assert.equal(visible['png.selection-smart'], false);
+  assert.equal(s.getItem('pngrelay.settings.v1'), before); assert.match(prefs.problems().join('\n'), /visibility could not be saved/);
+});

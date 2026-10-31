@@ -2,7 +2,7 @@
   "manifestVersion": 5,
   "id": "com.nasaat.pngrelay",
   "name": "Photoshop Tool",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "main": "main.js",
   "host": {
     "app": "PS",
@@ -49,6 +49,13 @@
     },
     {
       "type": "command",
+      "id": "copyImageOnly",
+      "label": {
+        "default": "Copy Composition"
+      }
+    },
+    {
+      "type": "command",
       "id": "selectionSmart",
       "label": {
         "default": "Selection to Smart Object + PNG + Copy"
@@ -59,13 +66,6 @@
       "id": "exportPngOnly",
       "label": {
         "default": "Export PNG Only"
-      }
-    },
-    {
-      "type": "command",
-      "id": "copyImageOnly",
-      "label": {
-        "default": "Copy Image Only"
       }
     }
   ]

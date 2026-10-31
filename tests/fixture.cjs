@@ -6,8 +6,9 @@ const { createPNGService } = require('../plugin/tools/png/service.js');
 const { createRunner } = require('../plugin/core/runner.js');
 const { createOutputAccess } = require('../plugin/core/output-access.js');
 const { normalizeExport } = require('../plugin/core/preferences.js');
+const { pngFixture } = require('./png-fixture.cjs');
 function fixture(fail = {}) {
-  const events = [], files = new Map(), autoClose = new Set(), statuses = [];
+  const events = [], files = new Map(), autoClose = new Set(), statuses = [], copied = [];
   let docID = 1, layerID = 100, parentLayers, folderCalls = 0;
   const C = { DocumentMode: { RGB: 'RGB', GRAYSCALE: 'GRAY' }, BitsPerChannelType: { EIGHT: 'bitDepth8', SIXTEEN: 'bitDepth16' },
     LayerKind: { NORMAL: 'pixel', SMARTOBJECT: 'smart' }, ChannelType: { COMPONENT: 'component' },
@@ -21,6 +22,13 @@ function fixture(fail = {}) {
       files.delete(this.name); this.name = options.newName; files.set(this.name, this);
     }
     async delete() { hit('delete'); files.delete(this.name); }
+    async read() {
+      hit('read');
+      const image = this.image;
+      let data = pngFixture(fail.badDimensions ? 1 : image.width, image.height, fail.badDepth ? 8 : image.depth === C.BitsPerChannelType.SIXTEEN ? 16 : 8, image.mode === C.DocumentMode.GRAYSCALE ? 4 : 6);
+      if (fail.corruptPNG) { data = Buffer.from(data); data[data.length - 5] ^= 1; }
+      return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+    }
   }
   const folder = { isFolder: true, nativePath: 'C:/Art', async getEntries() { hit('list'); return Array.from(files.values()); }, async createFile(name) { hit('createFile'); return new Entry(name); } };
   const app = { documents: [], activeDocument: null, version: 'mock-27.x', preferences: { general: { exportClipboard: true } } };
@@ -29,15 +37,15 @@ function fixture(fail = {}) {
     const doc = { id: ++docID, name, path, width, height, bitsPerChannel: depth, mode: C.DocumentMode.RGB, quickMaskMode: false,
       componentChannels: [channel], activeChannels: [channel], layers: [], activeLayers: [],
       selection: { bounds: { left: 5, top: 7, right: 105, bottom: 87 }, async deselect() { hit('deselect'); this.bounds = null; }, async selectAll() { hit('selectAll'); } },
-      async duplicate(name, merged) { hit('duplicate'); assert.equal(merged, true); return makeDoc(name, '', this.width, this.height, this.bitsPerChannel); },
+      async duplicate(name, merged) { hit('duplicate'); assert.equal(merged, true); const copy = makeDoc(name, '', this.width, this.height, this.bitsPerChannel); copy.mode = this.mode; copy.composition = this.layers.filter(layer => layer.visible !== false).map(layer => layer.id); return copy; },
       async close() { hit('close'); app.documents = app.documents.filter(d => d !== this); if (app.activeDocument === this) app.activeDocument = app.documents[0]; },
       async changeMode() { hit('mode'); this.mode = C.DocumentMode.RGB; }, async convertProfile() { hit('profile'); },
-      saveAs: { async png(entry, options, copy) { hit('save'); assert.equal(copy, true); assert.equal(options.compression, 6); entry.image = { width, height, depth }; files.set(entry.name, entry); } } };
-    const layer = { id: ++layerID, name: 'Cutout', kind: C.LayerKind.NORMAL, async copy(merged) { hit('copy'); assert.equal(merged, true); } };
+      saveAs: { async png(entry, options, copy) { hit('save'); assert.equal(copy, true); assert.equal(options.compression, 6); entry.image = { width: doc.width, height: doc.height, depth: doc.bitsPerChannel, mode: doc.mode }; files.set(entry.name, entry); } } };
+    const layer = { id: ++layerID, name: 'Cutout', visible: true, kind: C.LayerKind.NORMAL, async copy(merged) { hit('copy'); assert.equal(merged, true); copied.push({ docID: doc.id, composition: doc.composition, width: doc.width, height: doc.height, selection: doc.selection.bounds }); } };
     doc.layers = [layer]; doc.activeLayers = [layer]; app.documents.push(doc); app.activeDocument = doc; return doc;
   }
   const source = makeDoc('Design.psd', 'C:\\Art\\Design.psd');
-  app.open = async entry => { hit('open'); return makeDoc(entry.name, 'C:/Art/' + entry.name, fail.badDimensions ? 1 : entry.image.width, entry.image.height, entry.image.depth); };
+  app.open = async () => { hit('open'); assert.fail('Export must not reopen PNG documents'); };
   const ctx = { isCancelled: false, hostControl: {
     async registerAutoCloseDocument(id) { autoClose.add(id); }, async unregisterAutoCloseDocument(id) { autoClose.delete(id); },
     async suspendHistory() { hit('suspend'); parentLayers = source.layers.slice(); return 1; },
@@ -57,9 +65,9 @@ function fixture(fail = {}) {
     return [{}];
   } } };
   const fs = { async getEntryWithUrl(url) { hit('folder'); folderCalls++; assert.equal(url, 'file:/C:/Art'); if (fail.folderAccess) throw new Error('Access denied'); return folder; }, async getFolder() { assert.fail('PNG tools must not request a folder picker'); } };
-  const host = createHost(ps), services = { png: createPNGService(host, createOutputAccess(fs)) };
-  const runner = createRunner(registry, context => ({ ...context, services }), (...s) => statuses.push(s), '0.3.1');
-  return { app, source, C, files, Entry, folder, events, ctx, statuses, runner, services, host, folderCalls: () => folderCalls,
+  const host = createHost(ps), services = { png: createPNGService(host, createOutputAccess(fs), file => file.read()) };
+  const runner = createRunner(registry, context => ({ ...context, services }), (...s) => statuses.push(s), '0.3.2');
+  return { app, source, C, files, Entry, folder, events, ctx, statuses, copied, runner, services, host, folderCalls: () => folderCalls,
     run: (id = 'png.export-copy', options) => runner.run(id, normalizeExport(options)) };
 }
 module.exports = { fixture };

@@ -1,9 +1,10 @@
 'use strict';
 const { withHistory } = require('../../core/host.js');
 const { findEntry, commitOutput } = require('../../core/safe-output.js');
-const { location, selectionName, dimensions, verifyDimensions } = require('./logic.js');
+const { location, selectionName, dimensions } = require('./logic.js');
+const { verifyPNG } = require('./verify-file.js');
 const { canonical } = require('../../core/output-access.js');
-function createPNGService(host, resolveFolder) {
+function createPNGService(host, resolveFolder, readBinary) {
   const roots = new Map();
   const { app, C } = host;
   async function close(ctx, doc, warn) { try { await host.close(ctx, doc); } catch (e) { warn('Temporary document cleanup failed: ' + e.message, e); } }
@@ -28,33 +29,36 @@ function createPNGService(host, resolveFolder) {
     const existing = await findEntry(folder, name);
     if (existing && !existing.isFile) throw new Error('The output name is occupied by a folder.');
     if (existing && !options.overwrite) throw new Error('PNG already exists. Enable Replace existing PNG to update it.');
-    let scratch, reopened, stage, committed = false;
+    let scratch, stage, committed = false;
     const stagingName = '.photoshoptool-export-' + Date.now() + '-' + Math.random().toString(16).slice(2) + '.png';
     record.targetFilename = name;
     try {
       host.cancel(ctx); progress('Preparing full-resolution image…');
       scratch = await source.duplicate('Photoshop Tool export', true);
       await host.own(ctx, scratch); await prepareCopy(scratch, options);
-      const expected = dimensions(scratch); host.cancel(ctx);
+      const expected = dimensions(scratch);
+      const bitDepth = expected.depth === C.BitsPerChannelType.SIXTEEN ? 16 : 8;
+      const mode = scratch.mode === C.DocumentMode.RGB ? 'RGB' : 'Grayscale';
+      host.cancel(ctx);
       stage = await folder.createFile(stagingName, { overwrite: false });
       progress('Saving lossless PNG…');
       await scratch.saveAs.png(stage, { method: C.PNGMethod.QUICK, compression: options.compression, interlaced: false }, true);
-      await host.close(ctx, scratch); scratch = null; host.cancel(ctx);
+      host.cancel(ctx);
       progress('Verifying saved PNG…');
-      reopened = await app.open(stage); await host.own(ctx, reopened);
-      verifyDimensions(expected, dimensions(reopened));
+      record.verification = verifyPNG(await readBinary(stage), { width: expected.width, height: expected.height, bitDepth, mode }, () => host.cancel(ctx));
+      host.cancel(ctx);
       let copyError, copyFailed = false;
       if (copy) {
         progress('Copying image…');
-        try { await copyPixels(ctx, reopened, record); } catch (e) { copyError = e; copyFailed = true; }
+        try { await copyPixels(ctx, scratch, record); } catch (e) { copyError = e; copyFailed = true; }
       }
-      await host.close(ctx, reopened); reopened = null; host.cancel(ctx);
+      await host.close(ctx, scratch); scratch = null; host.cancel(ctx);
       progress('Finishing PNG…');
       await commitOutput(folder, stage, name, options.overwrite, () => host.cancel(ctx), warn);
       committed = true; record.pngSaved = true; record.filename = name; Object.assign(record, expected);
       if (copyFailed) throw copyError;
     } finally {
-      for (const doc of [reopened, scratch]) await close(ctx, doc, warn);
+      await close(ctx, scratch, warn);
       // A successful or uncertain move must never cause deletion of a final PNG.
       if (stage && !committed && stage.name === stagingName) try { await stage.delete(); } catch (e) { warn('A temporary PNG may remain beside the PSD.', e); }
     }

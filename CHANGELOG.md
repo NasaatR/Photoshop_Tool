@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.2
+
+- Show a dedicated Copy image button beside PNG + Copy by default. Expose the previously optional Copy command once on update, preserving other settings and subsequent visibility choices.
+- Clarify that Copy transfers the full visible composition as one image, ignoring the current selection/active layer, with no output file or folder access. PNG + Copy continues to perform both effects; native image copy never uses the text-report clipboard code.
+- Remove the output PNG document open/close cycle. Save and copy from one operation-owned merged document; verify the staged binary PNG signature, geometry, depth/color type, chunk structure and CRCs before copying/committing.
+- Preserve output backup/recovery, partial-success reporting, cancellation and source state. Log the new integrity-verification method explicitly; this does not decode/visually inspect exported pixels.
+- Add regression tests for full-composition copy, default/upgrade visibility, no PNG reopening, malformed/truncated/corrupt PNGs and read/depth failures. Native Photoshop/clipboard/flash acceptance remains outstanding.
+
 ## 0.3.1
 
 - Set an explicit independent panel size range (176×96–4096×4096), remove viewport-height coupling and place content/settings/report controls in one scroll body.

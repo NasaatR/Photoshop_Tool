@@ -1,1 +1,1 @@
-d9c11b2972a00c5de69041ff8a5829e2da77c6e024486cd2598d2fe13a24b742  Photoshop-Tool-0.3.1.ccx
+27bbff498d2da87852b7cc2c7e8ee2016d81294e5c34f19d9ceceb0b7d90369e  Photoshop-Tool-0.3.2.ccx

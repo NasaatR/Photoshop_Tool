@@ -19,10 +19,10 @@ function panel(overrides = {}) {
   const view = createPanel(makeDocument(), registry.list(), normalizeExport(null), normalizeAppearance(null), {}, { run: id => runs.push(id), external() {}, report() {}, copyReport() {}, draft() {}, changed() {}, appearance() {}, visibility() {}, ...overrides }, '0.3.1');
   return { view, runs };
 }
-test('panel renders registered tools, keeps optional tools hidden and reveals them without rebuilding', async () => {
-  const { view } = panel(); assert.equal(view.elements['png.export-copy'].hidden, false); assert.equal(view.elements['png.copy-only'].hidden, true);
-  const first = view.elements['png.export-copy']; view.elements['visible-png.copy-only'].checked = true; await view.elements['visible-png.copy-only'].fire('change');
-  assert.equal(view.elements['png.copy-only'].hidden, false); assert.equal(view.elements['png.export-copy'], first);
+test('panel shows Copy beside PNG + Copy; optional PNG only can be revealed without rebuilding', async () => {
+  const { view } = panel(); assert.equal(view.elements['png.export-copy'].hidden, false); assert.equal(view.elements['png.copy-only'].hidden, false); assert.equal(view.elements['png.export-only'].hidden, true);
+  const first = view.elements['png.export-copy']; view.elements['visible-png.export-only'].checked = true; await view.elements['visible-png.export-only'].fire('change');
+  assert.equal(view.elements['png.export-only'].hidden, false); assert.equal(view.elements['png.export-copy'], first);
 });
 test('custom action keyboard supports Enter/Space without repeat or disabled activations', async () => {
   const { view, runs } = panel(), node = view.elements['png.export-copy'];
@@ -43,7 +43,7 @@ test('appearance changes retain controls and invalid input drafts', async () => 
 });
 function find(root, id) { if (root.id === id) return root; for (const child of root.children) { const result = find(child, id); if (result) return result; } return null; }
 function mainFixture(fail = {}) {
-  const doc = makeDocument(), root = doc.createElement('root'), stored = new Map(); let setup, alerts = 0, writes = '', clipboardText = '', clipboardWrites = 0, pickers = 0;
+  const doc = makeDocument(), root = doc.createElement('root'), stored = new Map(Object.entries(fail.stored || {})); let setup, alerts = 0, writes = '', clipboardText = '', clipboardWrites = 0, pickers = 0;
   const ps = { app: { version: 'mock-host', documents: [], activeDocument: null, preferences: { general: { exportClipboard: true } }, async showAlert() { alerts++; } }, constants: {}, core: {}, action: {} };
   const uxp = { storage: { localFileSystem: { async getFileForSaving() { pickers++; if (fail.cancelSave) return null; return { async write(text) { if (fail.save) throw new Error('Disk full'); writes = text; } }; } } }, entrypoints: { setup(s) { assert.equal(setup, undefined); setup = s; } } };
   const navigator = { platform: 'Win32', clipboard: { async writeText(text) { clipboardWrites++; if (fail.copy) throw new Error('Clipboard busy'); clipboardText = text; }, readText() { throw new Error('Unexpected clipboard read'); } } };
@@ -64,6 +64,13 @@ test('tool visibility and appearance survive recreation separately from export s
   await find(f.root, 'labels').fire('click'); const checkbox = find(f.root, 'visible-png.copy-only'); checkbox.checked = true; await checkbox.fire('change');
   f.setup.panels.relayPanel.destroy(); f.setup.panels.relayPanel.show(f.root);
   assert.equal(find(f.root, 'png.copy-only').hidden, false); assert.equal(JSON.parse(f.stored.get('pngrelay.appearance.v1')).labels, true); assert.equal(f.stored.has('pngrelay.settings.v1'), false);
+});
+test('update exposes Copy once even with an old hidden override, then respects later hiding', async () => {
+  const f = mainFixture({ stored: { 'photoshoptool.tools.v1': JSON.stringify({ schema: 1, visible: { 'png.copy-only': false, 'png.selection-smart': false } }) } });
+  f.setup.panels.relayPanel.create(f.root); assert.equal(find(f.root, 'png.copy-only').hidden, false); assert.equal(find(f.root, 'png.selection-smart').hidden, true);
+  const checkbox = find(f.root, 'visible-png.copy-only'); checkbox.checked = false; await checkbox.fire('change');
+  f.setup.panels.relayPanel.destroy(); f.setup.panels.relayPanel.show(f.root); assert.equal(find(f.root, 'png.copy-only').hidden, true);
+  const reloaded = mainFixture({ stored: Object.fromEntries(f.stored) }); reloaded.setup.panels.relayPanel.create(reloaded.root); assert.equal(find(reloaded.root, 'png.copy-only').hidden, true);
 });
 test('local diagnostics include tool IDs and lifecycle counters without touching clipboard', async () => {
   const f = mainFixture(); f.setup.panels.relayPanel.create(f.root); await find(f.root, 'report').fire('click');

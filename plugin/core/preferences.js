@@ -2,6 +2,7 @@
 const EXPORT_KEY = 'pngrelay.settings.v1';
 const APPEARANCE_KEY = 'pngrelay.appearance.v1';
 const TOOLS_KEY = 'photoshoptool.tools.v1';
+const COPY_BUTTON_KEY = 'photoshoptool.copyButton.v1';
 function normalizeExport(raw) {
   const r = raw && raw.schema === 1 ? raw : {};
   return { schema: 1, overwrite: r.overwrite !== false, srgb: r.srgb === true,
@@ -26,6 +27,13 @@ function createPreferences(storage) {
     saveExport(value) { const next = normalizeExport(value); storage.setItem(EXPORT_KEY, JSON.stringify(next)); return next; },
     saveAppearance(value) { const next = normalizeAppearance(value); storage.setItem(APPEARANCE_KEY, JSON.stringify(next)); return next; },
     visibility() { const r = read(TOOLS_KEY); return r && r.schema === 1 && r.visible && typeof r.visible === 'object' ? { ...r.visible } : {}; },
+    exposeCopyButton(visible) {
+      if (read(COPY_BUTTON_KEY) === 1) return visible;
+      const next = { ...visible, 'png.copy-only': true };
+      try { storage.setItem(TOOLS_KEY, JSON.stringify({ schema: 1, visible: next })); storage.setItem(COPY_BUTTON_KEY, '1'); }
+      catch (_) { problems.push('Copy button visibility could not be saved.'); }
+      return next;
+    },
     saveVisibility(visible) { const next = {}; for (const [id, value] of Object.entries(visible)) if (typeof value === 'boolean') next[id] = value; storage.setItem(TOOLS_KEY, JSON.stringify({ schema: 1, visible: next })); return next; }
   };
 }

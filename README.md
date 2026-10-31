@@ -6,7 +6,7 @@ A modular Adobe Photoshop UXP toolbox by NasaatR. It starts with full-resolution
 
 ## Download and install
 
-**Development preview 0.3.1:** [Download Photoshop-Tool-0.3.1.ccx](https://github.com/NasaatR/Photoshop_Tool/raw/refs/heads/develop/dist/Photoshop-Tool-0.3.1.ccx). This is the installable plugin, not GitHub's source ZIP. [SHA-256](dist/SHA256SUMS.txt).
+**Development preview 0.3.2:** [Download Photoshop-Tool-0.3.2.ccx](https://github.com/NasaatR/Photoshop_Tool/raw/refs/heads/develop/dist/Photoshop-Tool-0.3.2.ccx). This is the installable plugin, not GitHub's source ZIP. [SHA-256](dist/SHA256SUMS.txt).
 
 1. Close Photoshop. Double-click the `.ccx` file and approve installation/update in Creative Cloud Desktop.
 2. Open Photoshop → **Plugins → Photoshop Tool → Photoshop Tool**.
@@ -21,21 +21,24 @@ Code is in **develop**, as requested by the repository owner. `main` is delibera
 | Tool | Behavior |
 | --- | --- |
 | PNG + Copy | Current visible canvas → lossless PNG beside the local PSD/PSB, then image data for native paste. |
+| Copy | Full visible composition as one image, ignoring the selection/selected layer. No PNG, folder access or disk staging. Also works on an unsaved document. |
 | Selection → Smart Object | Selected area on one raster layer → Ctrl+J → new embedded Smart Object → open contents → export beside the parent PSD and copy. |
 | PNG only | Export without changing the image clipboard. Works even when Export Clipboard is disabled. |
-| Copy only | Copy visible artwork without a PNG, folder grant or disk staging. Also works on an unsaved document. |
 
-The first two buttons are visible by default. Enable the other tools under **gear → Tool buttons**; all four commands are also in Photoshop's Plugins menu. The label toggle, compact/roomy size, square/soft corners and Photoshop/dark/light theme are retained. Drag the floating panel's edge/corner or a dock divider to resize. The manifest explicitly permits 176×96 through 4096×4096 pixels; Photoshop's docking layout may impose additional limits. Content, options and reports share one scroll body at small sizes. Click the status line for full output names/errors; the copy icon beside it copies a diagnostic report.
+**PNG + Copy, Copy and Smart Object** are visible by default, in that order. This update exposes Copy once even if the old optional button was hidden; other settings remain intact and later hiding is respected. PNG only is an advanced option under **gear → Tool buttons**; all four commands are also in Photoshop's Plugins menu. Copy uses the existing `copyImageOnly` command ID. It copies image data for Ctrl+V, not a file path, file list or separate layers. Hidden layers remain hidden in the composite.
+
+The label toggle, compact/roomy size, square/soft corners and Photoshop/dark/light theme are retained. Drag the floating panel's edge/corner or a dock divider to resize. The manifest explicitly permits 176×96 through 4096×4096 pixels; Photoshop's docking layout may impose additional limits. Content, options and reports share one scroll body at small sizes. Click the status line for full output names/errors; the small copy icon beside it copies a diagnostic text report, separate from the larger Copy image tool.
 
 ## Export behavior and limits
 
-- Windows 11; Photoshop **26.9+**, UXP API v2. Version 0.1.1 was reported working by the user. This 0.3.1 build has not been executed in a real Photoshop host here.
+- Windows 11; Photoshop **26.9+**, UXP API v2. Version 0.1.1 was reported working by the user. This 0.3.2 build has not been executed in a real Photoshop host here.
 - Original canvas dimensions and source 8/16-bit depth; RGB/Grayscale only. No lossy compression or arbitrary resizing. Other modes and 32-bit/HDR are refused instead of silently converted. Optional sRGB conversion changes only the temporary copy.
 - PNG uses current in-memory artwork, including unsaved edits. It does **not** automatically save/flatten the source PSD. Artboards export the full document canvas, not separate board files.
 - Smart Object extraction uses the selected raster layer's own content, not a merged crop of the whole composition. Text, groups, adjustment layers and existing Smart Objects are refused. Native Photoshop masks/styles/blending semantics apply.
 - The new Smart Object contents stay open. Use PNG + Copy inside them to update the same derived PNG in this plugin session. Undo in the parent affects scene edits, not files or clipboard. Unrecognized temporary PSBs are refused.
 - Copying uses Photoshop's native image clipboard. Receiving applications decide formats, bit depth, transparency and transparent-border handling. Universal paste/alpha support is not claimed. Enable Photoshop Export Clipboard with the explicit panel button if offered.
-- PNG verification opens the saved staging image once and checks dimensions/depth; the same document supplies clipboard pixels. Copy only needs no PNG open. There is no background polling, animation or idle Photoshop mutation. White panel flashes previously reported by the user were not reproduced or conclusively diagnosed.
+- PNG export now uses one temporary merged document for both saving and copying, then closes it and restores focus. It does **not** reopen the PNG in Photoshop. Before any clipboard change or file replacement, the plugin reads the staged PNG as binary and checks signature, dimensions, bit depth/color mode, chunk boundaries/order, image-data presence, ending and every chunk CRC. This reads the compressed file into memory; it is a structure/integrity check, not a pixel decode or visual/ICC comparison. Diagnostics record `verification.method` and `decodedPixels: false` honestly. Copy uses no PNG read/open/write. Neither action changes the original selection or merges source layers.
+- Removing the PNG open/close cycle eliminates one document opening from each export. A temporary merged document and native save/copy operations remain and may still redraw Photoshop. Reduced document switching is source/mocked evidence; actual flashing has not been reproduced or confirmed fixed. There is no background polling, animation, forced redraw or idle Photoshop mutation.
 
 ## Recovery, data and permissions
 
@@ -66,12 +69,14 @@ The GitHub check workflow runs tests, build/source checks and a byte-for-byte co
 
 ## Verification and provenance
 
-Local checks cover registry extension/duplicate IDs, manifest parity, source syntax/imports, preference preservation, direct folder resolution with no picker, full-size 16-bit output, one-open PNG verification, copy/save variants, file backup/restore failures, stale targets, cancellation, Smart Object rollback/retry, keyboard controls, visibility, idle no-op rendering and report export/failures/history bounds. They use mocks, not real Photoshop. CCX files are also checked with an independent ZIP reader.
+Local checks cover registry extension/duplicate IDs, manifest parity, source syntax/imports, preference preservation, direct folder resolution with no picker, full-size 16-bit output, PNG structure/CRC verification without opening a document, full-composition copy with an existing selection, copy/save variants, file backup/restore failures, stale targets, cancellation, Smart Object rollback/retry, keyboard controls, one-time Copy visibility migration, idle no-op rendering and report export/failures/history bounds. They use mocks, not real Photoshop. CCX files are also checked with an independent ZIP reader.
 
-Not verified here: native Photoshop 0.3.1 installation/rendering/resizing, real PNG appearance/ICC, external paste/alpha, text clipboard or Microsoft Defender acceptance. White flashing remains undiagnosed. No antivirus certification or release signing is claimed.
+Not verified here: native Photoshop 0.3.2 installation/rendering/resizing, real PNG appearance/ICC, external paste/alpha, text clipboard or Microsoft Defender acceptance. White flashing remains undiagnosed. No antivirus certification or release signing is claimed. A focused host check is: select a small region on a multilayer PSD, click Copy and paste the full visible composition; click PNG + Copy and compare the saved PNG/paste; confirm the original PSD selection/layers and final focus remain unchanged. Return Copy report if an action fails.
 
 Original project: **[NasaatR/Photoshop_Tool](https://github.com/NasaatR/Photoshop_Tool)**. MIT licensed; [LICENSE](LICENSE). The understated UI credit is **Made by Nasaat**; it does not add a restriction to the MIT license. No third-party runtime dependencies or copied exporter code are bundled.
 
 Primary platform references: [Photoshop document API](https://developer.adobe.com/photoshop/uxp/2022/ps-reference/classes/document), [modal/history](https://developer.adobe.com/photoshop/uxp/2022/ps-reference/media/executeasmodal), [Adobe independent package format](https://developer.adobe.com/developer-distribution/creative-cloud/docs/guides/submission/overview), [CCX installation](https://developer.adobe.com/uxp/guides/how-to/distribution/install/).
 
 For this update: [manifest size fields](https://developer.adobe.com/photoshop/uxp/2022/guides/uxp-guide/uxp-misc/manifest-v4/), [file/clipboard permissions](https://developer.adobe.com/photoshop/uxp/2022/guides/uxp-guide/uxp-misc/manifest-v5/), [storage provider](https://developer.adobe.com/photoshop/uxp/2022/uxp-api/reference-js/modules/uxp/persistent-file-storage/file-system-provider), [text clipboard](https://developer.adobe.com/photoshop/uxp/2022/uxp-api/reference-js/global-members/data-transfers/clipboard).
+
+Copy/verification references: [native merged layer copy](https://developer.adobe.com/photoshop/uxp/2022/ps-reference/classes/layer#copy), [binary File.read](https://developer.adobe.com/photoshop/uxp/2022/uxp-api/reference-js/modules/uxp/persistent-file-storage/storage), [W3C PNG specification](https://www.w3.org/TR/png-3/).
