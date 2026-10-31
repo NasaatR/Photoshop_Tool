@@ -4,6 +4,7 @@ const { icon } = require('./icons.js');
 const { createTooltips } = require('./tooltips.js');
 const { createReorder } = require('./reorder.js');
 const { scrollKey, revealTop } = require('./scroll.js');
+const { createViewport } = require('./viewport.js');
 function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handlers, version, orderDraft = []) {
   const elements = {}, controls = {}, toolNodes = {}, choices = {};
   let appearance = { ...appearanceDraft }, visibility = { ...visibilityDraft };
@@ -160,7 +161,8 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     'PNG files go beside the project automatically. Native image paste depends on the receiving application.',
     'Copy report replaces the clipboard with diagnostic text. Reports contain filenames, the last eight operations and recent session events. Nothing is sent automatically.'
   ].forEach(text => help.appendChild(make('p', text, { class: 'pt-hint' })));
-  root.appendChild(append(make('div', null, { class: 'pt-footer' }), [make('span', 'Made by Nasaat'), make('span', 'v' + version, { class: 'pt-version' })]));
+  const footer = append(make('div', null, { class: 'pt-footer' }), [make('span', 'Made by Nasaat'), make('span', 'v' + version, { class: 'pt-version' })]); root.appendChild(footer);
+  const viewport = createViewport(doc, scroll, footer);
   arranger = createReorder(doc, tools, toolNodes, orderDraft, {
     apply(ordered) { for (const tool of ordered) groups.get(tool.group || 'Tools').actions.appendChild(toolNodes[tool.id]); },
     save(ids) { if (handlers.order) handlers.order(ids); },
@@ -192,7 +194,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     if (!initial) handlers.appearance({ ...appearance });
   }
   selectSettingsTab('view'); updateVisibility(); applyAppearance({}, true);
-  return { root, elements, dismissHints() { hints.dismiss('panel-hidden'); arranger.cancel(); }, tooltipReport: hints.report, settingsTab: () => activeSettingsTab, scrollReport: () => ({ height: scroll.clientHeight, contentHeight: scroll.scrollHeight, top: scroll.scrollTop }), order: arranger.order, dispose() { arranger.destroy(); hints.destroy(); }, appearance: () => ({ ...appearance }), visibility: () => ({ ...visibility }),
+  return { root, elements, mount: viewport.mount, dismissHints() { hints.dismiss('panel-hidden'); arranger.cancel(); }, tooltipReport: hints.report, settingsTab: () => activeSettingsTab, scrollReport: () => ({ layout: viewport.report(), height: scroll.clientHeight, contentHeight: scroll.scrollHeight, top: scroll.scrollTop }), order: arranger.order, dispose() { viewport.destroy(); arranger.destroy(); hints.destroy(); }, appearance: () => ({ ...appearance }), visibility: () => ({ ...visibility }),
     values: () => ({ overwrite: elements.overwrite.checked, srgb: elements.srgb.checked, compression: String(compression.value) }),
     reportStatus(text) { elements.reportStatus.textContent = text; elements.reportStatus.hidden = !text; },
     status(text, state, needsExternal) {

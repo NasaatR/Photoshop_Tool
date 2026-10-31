@@ -83,6 +83,7 @@ function mount(root) {
     visibility(value) { visibility = value; try { preferences.saveVisibility(value); } catch (e) { failure('tool visibility preferences', e); } }
   }, product.displayVersion, order);
   if (view.root.parentNode !== root) root.appendChild(view.root);
+  view.mount(root);
   view.disable(uiBusy); status(pending[0], pending[1]);
 }
 const commands = {};

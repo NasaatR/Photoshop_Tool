@@ -16,7 +16,7 @@ module.exports = `
 #photoshoptool.pt-light {--bg:#eeeeee;--fg:#252525;--muted:#626262;--border:#c2c2c2;--hover:#d8d8d8;--surface:#e6e6e6;--raised:#f8f8f8;--primary:#ffffff;--primary-border:#999999;--status-bg:#e3e3e3;--success:#27663b;--error:#a0372e;}
 #photoshoptool.pt-roomy {--size:50px;--layer-size:36px;--layer-label-size:62px;}
 #photoshoptool.pt-soft {--radius:10px;--small-radius:6px;--layer-radius:8px;}
-#photoshoptool .pt-scroll {position:absolute;display:block;left:8px;right:5px;top:8px;bottom:28px;min-width:0;min-height:0;overflow-y:auto;overflow-x:hidden;padding:0 3px 4px 0;}
+#photoshoptool .pt-scroll {display:block;position:relative;flex:1;min-width:0;min-height:0;overflow-y:auto;overflow-x:hidden;padding:0 3px 4px 0;}
 #photoshoptool .pt-scroll > * {flex-shrink:0;}
 #photoshoptool .pt-scroll:focus {outline:none;}
 #photoshoptool .pt-toolbar {display:flex;align-items:center;justify-content:space-between;min-width:0;min-height:24px;margin-bottom:6px;}
@@ -74,7 +74,7 @@ module.exports = `
 #photoshoptool .pt-choice[aria-pressed="true"] {background-color:var(--raised);border-color:var(--primary-border);font-weight:600;}
 #photoshoptool .pt-text {min-height:29px;width:100%;justify-content:flex-start;padding:5px 7px;margin-top:6px;font-size:11px;background-color:var(--raised);}
 #photoshoptool .pt-hint {font-size:11px;line-height:16px;margin:6px 0;color:var(--muted);word-wrap:break-word;}
-#photoshoptool .pt-footer {position:absolute;left:10px;right:10px;bottom:6px;height:17px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;min-height:19px;padding:4px 2px 0;color:var(--muted);font-size:10px;line-height:13px;}
+#photoshoptool .pt-footer {position:relative;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;min-height:19px;padding:4px 2px 0;color:var(--muted);font-size:10px;line-height:13px;}
 #photoshoptool .pt-settings-header {display:flex;align-items:center;justify-content:space-between;min-height:24px;margin-bottom:5px;}
 #photoshoptool .pt-settings-title {font-size:11px;font-weight:600;}
 #photoshoptool .pt-settings-close {font-size:10px;min-height:22px;padding:2px 7px;}

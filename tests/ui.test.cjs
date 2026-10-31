@@ -169,7 +169,7 @@ test('compact layer toolbar preserves icon-only appearance and tool visibility t
   assert.equal(find(f.root, 'png.export-copy').parentNode.getAttribute('data-density'), 'standard');
   assert.deepEqual(JSON.parse(f.stored.get('pngrelay.appearance.v1')), appearance);
   await find(f.root, 'report').fire('click'); const report = f.report();
-  assert.equal(report.version, '1.2.0'); assert.equal(report.displayVersion, '1.2');
+  assert.equal(report.version, '1.3.0'); assert.equal(report.displayVersion, '1.3');
   f.setup.panels.relayPanel.hide(); f.setup.panels.relayPanel.destroy();
 });
 test('Arrange never runs a Photoshop tool and updates the actual toolbar before saving', async () => {
@@ -202,4 +202,16 @@ test('compact Settings tabs keep independent drafts, roving keyboard navigation 
   view.elements['appearance-labels'].checked = true; await view.elements['appearance-labels'].fire('change'); assert.equal(view.appearance().labels, true);
   await view.elements.labels.fire('click'); assert.equal(view.elements['appearance-labels'].checked, false); assert.equal(view.values().compression, '');
   await view.elements.settingsClose.fire('click'); assert.equal(view.elements.options.hidden, true); view.dispose();
+});
+test('panel mount recovers content sizing after a zero-height create without rebuilding tools or settings', async () => {
+  const f = mainFixture(); f.root.clientHeight = 0; f.root.rect = { height: 0 };
+  f.setup.panels.relayPanel.create(f.root); const scroll = find(f.root, 'scroll'), button = find(f.root, 'layers.black-mask');
+  assert.equal(scroll.style.height, undefined);
+  const footer = f.root.children[0].children.find(node => node.getAttribute('class') === 'pt-footer'); footer.rect = { height: 19 };
+  f.root.clientHeight = 174; f.setup.panels.relayPanel.show(f.root);
+  assert.equal(scroll.style.height, '139px'); assert.equal(scroll.style.flex, '0 0 auto');
+  assert.equal(find(f.root, 'layers.black-mask'), button); assert.equal(button.hidden, false);
+  await find(f.root, 'report').fire('click'); const layout = f.report().interface.scroll.layout;
+  assert.equal(layout.mode, 'measured-normal-flow'); assert.equal(layout.hostHeight, 174); assert.equal(layout.height, 139);
+  f.setup.panels.relayPanel.destroy();
 });

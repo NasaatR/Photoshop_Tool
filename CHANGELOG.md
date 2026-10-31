@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3 (native 1.3.0)
+
+- Restore the main content/footer to normal flow after the 1.2 absolute-inset/auto-height viewport was reported to render blank except for the footer.
+- Derive an explicit positive scroll height from the mounted host container, panel padding and footer. Use feature-detected ResizeObserver plus mount/show/window resize and one deferred layout pass; no polling. Unknown/zero measurements keep the working flow fallback instead of assigning zero height.
+- Reuse one observer per host, avoid duplicate size writes, dispose listeners/timers and retain the original controls, visibility, appearance and order. Preserve tabbed settings, compact hints and mask inversion.
+- Add numeric layout, zero-size startup/reopen, resize, observer failure and entrypoint integration regressions. Expose layout metrics/warnings in diagnostics. Native Photoshop visual confirmation remains outstanding.
+
 ## 1.2 (native 1.2.0)
 
 - Make Black Mask / Invert conditional: add a full black pixel mask when absent; otherwise select and invert the whole existing mask. Preserve source pixels, mask density/feather, exact pixel selection and one-step history rollback. Report create/invert effects only after commit; retain stable tool/command IDs.
