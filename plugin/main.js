@@ -48,7 +48,7 @@ function reportText() {
   try { platform = navigator.platform || 'unknown'; } catch (_) {}
   return formatReport({ schema: 2, product: product.name, version: product.version, displayVersion: product.displayVersion, generatedAt: new Date().toISOString(), photoshop: environment.photoshop, environment, platform,
     status: pending[0], statusState: pending[1], exportClipboard: ps.app.preferences.general.exportClipboard === true, lastOperation: runner.report(),
-    interface: { ...lifecycle, appearance, visibility, order, tooltip: view ? view.tooltipReport() : null, width: view ? view.root.clientWidth : null, height: view ? view.root.clientHeight : null, backgroundPolling: false, animations: false },
+    interface: { ...lifecycle, appearance, visibility, order, tooltip: view ? view.tooltipReport() : null, settingsTab: view ? view.settingsTab() : null, scroll: view ? view.scrollReport() : null, width: view ? view.root.clientWidth : null, height: view ? view.root.clientHeight : null, backgroundPolling: false, animations: false },
     tools: registry.list().map(t => t.id), diagnostics: diagnostics.report() });
 }
 function reportStatus(text) { if (view) view.reportStatus(text); }

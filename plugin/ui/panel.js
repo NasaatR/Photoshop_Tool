@@ -3,10 +3,11 @@ const CSS = require('./styles.js');
 const { icon } = require('./icons.js');
 const { createTooltips } = require('./tooltips.js');
 const { createReorder } = require('./reorder.js');
+const { scrollKey, revealTop } = require('./scroll.js');
 function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handlers, version, orderDraft = []) {
   const elements = {}, controls = {}, toolNodes = {}, choices = {};
   let appearance = { ...appearanceDraft }, visibility = { ...visibilityDraft };
-  let arranger = null;
+  let arranger = null, activeSettingsTab = 'view';
   let statusText = null, statusState = null, externalState = null;
   function make(tag, text, attrs) {
     const el = doc.createElement(tag);
@@ -21,7 +22,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     const el = make('div', null, { id, role: 'button', tabindex: '0', 'aria-label': title || label, 'aria-disabled': 'false' });
     el.className = 'pt-control ' + (className || '');
     if (description) el.setAttribute('data-hint', description);
-    hints.bind(el, () => ({ title: el.getAttribute('aria-label'), body: el.getAttribute('data-hint') }));
+    hints.bind(el, () => ({ title: el.getAttribute('data-hint-title') || el.getAttribute('aria-label'), body: el.getAttribute('data-hint') }));
     if (label) el.appendChild(make('span', label));
     const activate = event => { hints.dismiss(); if (!disabled) return callback(event); };
     el.addEventListener('click', activate);
@@ -40,8 +41,9 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   }
   const root = make('div', null, { id: 'photoshoptool' }); root.appendChild(make('style', CSS));
   const hints = createTooltips(doc, root, handlers.tooltipTimers);
-  const scroll = make('div', null, { class: 'pt-scroll' }); root.appendChild(scroll);
+  const scroll = make('div', null, { id: 'scroll', class: 'pt-scroll', tabindex: '0', role: 'region', 'aria-label': 'Photoshop Tool content' }); root.appendChild(scroll);
   scroll.addEventListener('scroll', hints.relayout);
+  scroll.addEventListener('keydown', event => scrollKey(scroll, event));
   const toolbar = make('div', null, { class: 'pt-toolbar' }), sections = [];
   toolbar.appendChild(make('div', 'QUICK TOOLS', { class: 'pt-eyebrow' }));
   const groups = new Map();
@@ -54,6 +56,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
       groups.set(group, { section, actions, tools: [] }); sections.push(section);
     }
     const node = control(tool.id, null, event => { if (!arranger || !arranger.activate(tool.id, event)) return handlers.run(tool.id); }, 'pt-action' + (tool.emphasis === 'primary' ? ' pt-primary' : ''), tool.title, tool.description);
+    node.setAttribute('data-hint-title', tool.hint || tool.label);
     append(node, [icon(doc, tool.icon), make('span', tool.label, { class: 'pt-caption' })]); toolNodes[tool.id] = node;
     groups.get(group).actions.appendChild(node); groups.get(group).tools.push(tool);
   });
@@ -67,7 +70,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   append(arrangeActions, [control('arrangeDone', 'Done', () => arranger.setActive(false), 'pt-choice', 'Finish arranging buttons'), control('arrangeReset', 'Reset order', () => arranger.reset(), 'pt-choice', 'Restore default button order', 'Only the order changes. Visibility, appearance and export options are kept.')]);
   append(arrangeBar, [arrangeHint, arrangeActions]);
   const options = make('div', null, { id: 'options' }); options.hidden = true;
-  const gear = control('settings', null, () => setOptions(options.hidden), 'pt-small', 'Options', 'Export settings, tool visibility, appearance, usage and diagnostic reports.'); gear.appendChild(icon(doc, 'settings'));
+  const gear = control('settings', null, event => setOptions(options.hidden, !!(event && event.key)), 'pt-small', 'Settings', 'Export settings, tool visibility, appearance, usage and diagnostic reports.'); gear.appendChild(icon(doc, 'settings'));
   gear.setAttribute('aria-expanded', 'false'); gear.setAttribute('aria-controls', 'options');
   append(utilities, [arrange, labelToggle, gear]); toolbar.appendChild(utilities); append(scroll, [toolbar, arrangeBar, ...sections]);
   const status = control('status', null, () => {
@@ -81,36 +84,66 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   append(scroll, [statusRow, details, make('p', '', { id: 'reportStatus', class: 'pt-hint', role: 'status', 'aria-live': 'polite' })]); elements.reportStatus.hidden = true;
   const external = control('external', 'Enable external paste', handlers.external, 'pt-text', 'Enable Photoshop Export Clipboard', 'Allow images copied in Photoshop to be pasted into other applications. Changes the Photoshop Export Clipboard preference.'); external.hidden = true;
   append(scroll, [external, options]);
-  function heading(text) { options.appendChild(make('div', text, { class: 'pt-heading' })); }
-  function checkbox(id, text, checked, change, description) {
+  const settingsPanels = {}, settingsTabs = {}, tabOrder = ['view', 'tools', 'export', 'help'];
+  const settingsHeader = make('div', null, { class: 'pt-settings-header' });
+  append(settingsHeader, [make('span', 'Settings', { class: 'pt-settings-title' }), control('settingsClose', 'Close', () => setOptions(false), 'pt-settings-close', 'Close settings')]);
+  options.appendChild(settingsHeader);
+  const tabList = make('div', null, { class: 'pt-settings-tabs', role: 'tablist', 'aria-label': 'Settings sections' }); options.appendChild(tabList);
+  for (const [id, label] of [['view', 'View'], ['tools', 'Tools'], ['export', 'Export'], ['help', 'Help']]) {
+    const tab = control('tab-' + id, label, () => selectSettingsTab(id), 'pt-tab', label + ' settings');
+    tab.setAttribute('role', 'tab'); tab.setAttribute('aria-controls', 'settings-' + id); tabList.appendChild(tab); settingsTabs[id] = tab;
+    tab.addEventListener('keydown', event => {
+      let next;
+      if (event.key === 'ArrowRight') next = tabOrder[(tabOrder.indexOf(id) + 1) % tabOrder.length];
+      if (event.key === 'ArrowLeft') next = tabOrder[(tabOrder.indexOf(id) + tabOrder.length - 1) % tabOrder.length];
+      if (event.key === 'Home') next = tabOrder[0]; if (event.key === 'End') next = tabOrder[tabOrder.length - 1];
+      if (next) { event.preventDefault(); selectSettingsTab(next); if (settingsTabs[next].focus) settingsTabs[next].focus(); }
+    });
+    const section = make('div', null, { id: 'settings-' + id, role: 'tabpanel', 'aria-labelledby': 'tab-' + id });
+    settingsPanels[id] = section; options.appendChild(section);
+  }
+  function selectSettingsTab(id) {
+    hints.dismiss(); activeSettingsTab = id;
+    for (const name of tabOrder) { const selected = name === id; settingsPanels[name].hidden = !selected; settingsTabs[name].setAttribute('aria-selected', String(selected)); settingsTabs[name].setAttribute('tabindex', selected ? '0' : '-1'); }
+  }
+  function heading(parent, text) { parent.appendChild(make('div', text, { class: 'pt-heading' })); }
+  function checkbox(id, text, checked, change, title) {
     const input = make('input', null, { id, type: 'checkbox' }); input.checked = checked;
     input.addEventListener('change', change);
     const label = append(make('label'), [input, make('span', text)]);
-    hints.bind(label, () => ({ title: text, body: description || '' }), input);
-    return label;
+    hints.bind(label, () => ({ title: title || text }), input); return label;
   }
-  heading('Export');
-  options.appendChild(checkbox('overwrite', 'Replace existing PNG', draft.overwrite, handlers.changed, 'Replace an existing PNG with the same name. Keeps a temporary backup until the new file is committed.'));
-  options.appendChild(checkbox('srgb', 'Convert copy to sRGB', draft.srgb, handlers.changed, 'Convert only the prepared export/copy to sRGB. The source document keeps its profile.'));
+  settingsPanels.export.appendChild(checkbox('overwrite', 'Replace existing PNG', draft.overwrite, handlers.changed));
+  settingsPanels.export.appendChild(checkbox('srgb', 'Convert to sRGB', draft.srgb, handlers.changed));
   const compression = make('input', null, { id: 'compression', type: 'number', min: '0', max: '9', 'aria-label': 'PNG compression, zero to nine' }); compression.value = String(draft.compression);
-  hints.bind(compression, () => ({ title: 'PNG compression', body: '0 is faster; 9 makes a smaller file. All values are lossless and keep the original resolution.' }));
+  hints.bind(compression, () => ({ title: 'PNG compression' }));
   compression.addEventListener('input', handlers.draft); compression.addEventListener('change', handlers.changed);
-  options.appendChild(append(make('label'), [make('span', 'Compression'), compression]));
-  options.appendChild(make('p', '0 = faster · 9 = smaller. Always lossless.', { class: 'pt-hint' }));
-  heading('Tool buttons');
-  tools.forEach(tool => options.appendChild(checkbox('visible-' + tool.id, tool.title, isVisible(tool), () => {
-    visibility[tool.id] = elements['visible-' + tool.id].checked; updateVisibility(); handlers.visibility({ ...visibility });
-  }, 'Show or hide this tool button. ' + tool.description)));
-  heading('Appearance');
-  function group(field, values) {
-    const row = make('div', null, { class: 'pt-choice-group', role: 'group', 'aria-label': field });
-    values.forEach(([value, label]) => { const id = field + '-' + value; const node = control(id, label, () => applyAppearance({ [field]: value }), 'pt-choice', label + ' ' + field, field === 'size' ? 'Change tool button density. Compact layer icons are 32 px; Roomy uses 36 px.' : field === 'corners' ? 'Change button and surface corner style.' : value === 'host' ? 'Follow the Photoshop panel theme.' : 'Use the ' + value + ' panel theme.'); choices[id] = { node, field, value }; row.appendChild(node); });
-    options.appendChild(row);
+  settingsPanels.export.appendChild(append(make('label'), [make('span', 'Compression'), compression]));
+  settingsPanels.export.appendChild(make('p', 'Lossless · 0 fast / 9 small', { class: 'pt-hint' }));
+  for (const group of groups.values()) {
+    heading(settingsPanels.tools, group.tools[0].group || 'Tools'); const list = make('div', null, { class: 'pt-tool-options' }); settingsPanels.tools.appendChild(list);
+    group.tools.forEach(tool => list.appendChild(checkbox('visible-' + tool.id, tool.label, isVisible(tool), () => {
+      visibility[tool.id] = elements['visible-' + tool.id].checked; updateVisibility(); handlers.visibility({ ...visibility });
+    }, tool.title)));
   }
-  group('size', [['compact', 'Compact'], ['roomy', 'Roomy']]); group('corners', [['square', 'Square'], ['soft', 'Rounded']]); group('theme', [['host', 'Auto'], ['dark', 'Dark'], ['light', 'Light']]);
+  settingsPanels.tools.appendChild(control('arrangeTools', 'Arrange buttons', () => { setOptions(false); arranger.setActive(true); }, 'pt-text', 'Arrange buttons'));
+  function group(field, label, values) {
+    const wrapper = make('div', null, { class: 'pt-setting-row' }); wrapper.appendChild(make('div', label, { class: 'pt-setting-name' }));
+    const row = make('div', null, { class: 'pt-choice-group', role: 'group', 'aria-label': label });
+    values.forEach(([value, text]) => { const id = field + '-' + value; const node = control(id, text, () => applyAppearance({ [field]: value }), 'pt-choice', text + ' ' + label.toLowerCase()); choices[id] = { node, field, value }; row.appendChild(node); });
+    wrapper.appendChild(row); settingsPanels.view.appendChild(wrapper);
+  }
+  group('size', 'Density', [['compact', 'Compact'], ['roomy', 'Roomy']]);
+  group('corners', 'Corners', [['square', 'Square'], ['soft', 'Rounded']]);
+  group('theme', 'Theme', [['host', 'Auto'], ['dark', 'Dark'], ['light', 'Light']]);
+  settingsPanels.view.appendChild(checkbox('appearance-labels', 'Button labels', appearance.labels, () => applyAppearance({ labels: elements['appearance-labels'].checked })));
+  settingsPanels.help.appendChild(make('p', 'Photoshop Tool ' + version + ' · Made by Nasaat', { class: 'pt-hint' }));
+  const reportActions = make('div', null, { class: 'pt-report-actions' });
+  append(reportActions, [control('copyReportHelp', 'Copy report', handlers.copyReport, 'pt-text', 'Copy report'), control('report', 'Save .txt', handlers.report, 'pt-text', 'Save report')]);
+  settingsPanels.help.appendChild(reportActions);
   const help = make('div', null, { id: 'help' }); help.hidden = true;
-  const helpButton = control('helpToggle', 'Help & report', () => { help.hidden = !help.hidden; helpButton.setAttribute('aria-expanded', String(!help.hidden)); }, 'pt-text', 'Help and diagnostics', 'Show tool instructions, limitations and Copy/Save report actions.'); helpButton.setAttribute('aria-expanded', 'false');
-  append(options, [helpButton, help]);
+  const helpButton = control('helpToggle', 'Tool guide', () => { help.hidden = !help.hidden; helpButton.setAttribute('aria-expanded', String(!help.hidden)); }, 'pt-text', 'Help and diagnostics', 'Show tool instructions, limitations and Copy/Save report actions.'); helpButton.setAttribute('aria-expanded', 'false');
+  append(settingsPanels.help, [helpButton, help]);
   [
     'Photoshop Tool ' + version + ' · Made by Nasaat',
     'Arrange buttons: use the arrow icon in the toolbar. Drag within a section, pick a button and its new position, or use arrow keys. Done/Escape ends arranging; Reset order keeps other settings.',
@@ -120,15 +153,13 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     'PNG + Copy saves the PNG and copies the same prepared composition. The optional PNG only tool keeps the clipboard unchanged.',
     'Smart Object converts selected layers in place. With no selected layer, it stamps the visible composition without merging originals. An existing Smart Object is reused. These layer tools do not export or open contents.',
     'Camera Raw uses the same Smart Object target and opens the native filter dialog. Choose OK to apply a Smart Filter. Cancel rolls back this command. RGB / Grayscale, 8 / 16 bit only.',
-    'Black mask adds a full Hide All pixel mask to one unlocked selected layer. Existing masks are kept. Paint with white to reveal the image.',
+    'Black Mask / Invert adds a full black mask if none exists, or inverts the entire existing pixel mask. The original pixel selection is restored; source pixels, mask density and feather are preserved.',
     'Curves and Hue / Sat add neutral adjustments clipped above one selected layer or group. Use Photoshop Properties to adjust them. Existing clipping chains follow Photoshop semantics.',
     'Solid Color opens the native color picker and adds an editable fill. Layer tools work in unsaved documents without export-folder access.',
     'Full resolution · RGB / Grayscale · 8 / 16 bit. The source PSD is not automatically saved.',
     'PNG files go beside the project automatically. Native image paste depends on the receiving application.',
     'Copy report replaces the clipboard with diagnostic text. Reports contain filenames, the last eight operations and recent session events. Nothing is sent automatically.'
   ].forEach(text => help.appendChild(make('p', text, { class: 'pt-hint' })));
-  help.appendChild(control('copyReportHelp', 'Copy report', handlers.copyReport, 'pt-text', 'Copy a text report for sharing', 'Copies recent diagnostic text, replacing the image clipboard. Nothing is sent automatically.'));
-  help.appendChild(control('report', 'Save report .txt', handlers.report, 'pt-text', 'Save a local text report', 'Choose a location for the diagnostic TXT file. The clipboard stays unchanged.'));
   root.appendChild(append(make('div', null, { class: 'pt-footer' }), [make('span', 'Made by Nasaat'), make('span', 'v' + version, { class: 'pt-version' })]));
   arranger = createReorder(doc, tools, toolNodes, orderDraft, {
     apply(ordered) { for (const tool of ordered) groups.get(tool.group || 'Tools').actions.appendChild(toolNodes[tool.id]); },
@@ -136,7 +167,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     state(active, picked) { root.setAttribute('data-arranging', String(active)); arrangeBar.hidden = !active; arrange.setAttribute('aria-pressed', String(active)); hints.enable(!active); const text = picked ? 'Choose a new position in this section, drag, or use arrow keys.' : 'Drag, or pick a button and its new position. Arrow keys move it.'; if (arrangeHint.textContent !== text) arrangeHint.textContent = text; }
   });
   root.addEventListener('keydown', e => { if (e.key === 'Escape' && arranger.escape()) { e.preventDefault(); return; } if (e.key === 'Escape' && hints.dismiss()) { e.preventDefault(); return; } if (e.key === 'Escape' && !options.hidden) { e.preventDefault(); setOptions(false); if (gear.focus) gear.focus(); } });
-  function setOptions(open) { hints.dismiss(); options.hidden = !open; gear.setAttribute('aria-expanded', String(open)); }
+  function setOptions(open, focusTab = false) { hints.dismiss(); options.hidden = !open; gear.setAttribute('aria-expanded', String(open)); if (open) { revealTop(scroll, options); if (focusTab && settingsTabs[activeSettingsTab].focus) settingsTabs[activeSettingsTab].focus(); } else { scroll.scrollTop = 0; if (gear.focus) gear.focus(); } }
   function isVisible(tool) { return typeof visibility[tool.id] === 'boolean' ? visibility[tool.id] : tool.defaultVisible !== false; }
   function updateVisibility() {
     hints.dismiss(); if (arranger) arranger.cancel();
@@ -154,13 +185,14 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     hints.dismiss();
     appearance = { ...appearance, ...patch };
     root.className = 'pt-root pt-' + appearance.theme + (appearance.labels ? ' pt-labels' : '') + (appearance.size === 'roomy' ? ' pt-roomy' : '') + (appearance.corners === 'soft' ? ' pt-soft' : '');
+    elements['appearance-labels'].checked = appearance.labels;
     labelToggle.setAttribute('aria-pressed', String(appearance.labels));
     labelToggle.setAttribute('aria-label', appearance.labels ? 'Hide button labels' : 'Show button labels');
     for (const choice of Object.values(choices)) choice.node.setAttribute('aria-pressed', String(appearance[choice.field] === choice.value));
     if (!initial) handlers.appearance({ ...appearance });
   }
-  updateVisibility(); applyAppearance({}, true);
-  return { root, elements, dismissHints() { hints.dismiss('panel-hidden'); arranger.cancel(); }, tooltipReport: hints.report, order: arranger.order, dispose() { arranger.destroy(); hints.destroy(); }, appearance: () => ({ ...appearance }), visibility: () => ({ ...visibility }),
+  selectSettingsTab('view'); updateVisibility(); applyAppearance({}, true);
+  return { root, elements, dismissHints() { hints.dismiss('panel-hidden'); arranger.cancel(); }, tooltipReport: hints.report, settingsTab: () => activeSettingsTab, scrollReport: () => ({ height: scroll.clientHeight, contentHeight: scroll.scrollHeight, top: scroll.scrollTop }), order: arranger.order, dispose() { arranger.destroy(); hints.destroy(); }, appearance: () => ({ ...appearance }), visibility: () => ({ ...visibility }),
     values: () => ({ overwrite: elements.overwrite.checked, srgb: elements.srgb.checked, compression: String(compression.value) }),
     reportStatus(text) { elements.reportStatus.textContent = text; elements.reportStatus.hidden = !text; },
     status(text, state, needsExternal) {
@@ -177,7 +209,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     disable(value) {
       if (value) { hints.dismiss(); if (arranger.active) arranger.setActive(false); }
       root.setAttribute('aria-busy', String(value));
-      [...tools.map(t => t.id), 'external', 'report', 'copyReport', 'copyReportHelp', 'arrange', 'arrangeDone', 'arrangeReset'].forEach(id => controls[id](value));
+      [...tools.map(t => t.id), 'external', 'report', 'copyReport', 'copyReportHelp', 'arrange', 'arrangeDone', 'arrangeReset', 'arrangeTools'].forEach(id => controls[id](value));
       for (const id of ['overwrite', 'srgb', 'compression']) if (elements[id].disabled !== value) elements[id].disabled = value;
     }
   };

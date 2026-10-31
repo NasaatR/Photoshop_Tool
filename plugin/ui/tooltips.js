@@ -14,11 +14,10 @@ function placeTooltip(panel, anchor, requestedWidth, requestedHeight) {
   return { left, top, width, height, maxHeight };
 }
 function createTooltips(doc, root, timers = { set: (fn, delay) => setTimeout(fn, delay), clear: id => clearTimeout(id) }) {
-  const tip = doc.createElement('div'), title = doc.createElement('div'), body = doc.createElement('div');
+  const tip = doc.createElement('div'), title = doc.createElement('div');
   tip.setAttribute('id', 'pt-tooltip'); tip.setAttribute('role', 'tooltip'); tip.setAttribute('class', 'pt-tooltip'); tip.hidden = true;
   title.setAttribute('id', 'pt-tooltip-title'); title.setAttribute('class', 'pt-tooltip-title');
-  body.setAttribute('id', 'pt-tooltip-body'); body.setAttribute('class', 'pt-tooltip-body');
-  tip.appendChild(title); tip.appendChild(body); root.appendChild(tip);
+  tip.appendChild(title); root.appendChild(tip);
   let current = null, pending = null, closing = null, overTip = false, disposed = false, enabled = true, pointer = null, layoutKey = null, geometry = null;
   const stats = { shown: 0, dismissed: 0, lastDismiss: null };
   const removers = [];
@@ -47,14 +46,15 @@ function createTooltips(doc, root, timers = { set: (fn, delay) => setTimeout(fn,
     const key = [bounds.left, bounds.top, bounds.width, bounds.height, anchor.left, anchor.top, anchor.width, anchor.height].join(':');
     if (layoutOnly && key === layoutKey) return; layoutKey = key;
     title.textContent = content.title;
-    body.textContent = content.body || ''; body.hidden = !content.body;
-    tip.style.width = Math.min(270, bounds.width - 12) + 'px';
-    const available = placeTooltip(bounds, anchor, Math.min(270, bounds.width - 12), bounds.height).maxHeight;
+    const maximumWidth = Math.min(220, bounds.width - 12);
+    tip.style.width = 'auto'; tip.style.maxWidth = maximumWidth + 'px';
+    tip.style.left = '6px'; tip.style.top = '6px';
+    const available = placeTooltip(bounds, anchor, maximumWidth, bounds.height).maxHeight;
     tip.style.maxHeight = Math.max(0, available) + 'px';
     tip.hidden = false;
     const size = tip.getBoundingClientRect();
-    const position = placeTooltip(bounds, anchor, Math.min(270, bounds.width - 12), size.height > 0 ? size.height : available);
-    tip.style.left = position.left + 'px'; tip.style.top = position.top + 'px';
+    const position = placeTooltip(bounds, anchor, Math.min(maximumWidth, size.width > 0 ? size.width : maximumWidth), size.height > 0 ? size.height : Math.min(28, available));
+    tip.style.width = position.width + 'px'; tip.style.left = position.left + 'px'; tip.style.top = position.top + 'px';
     target.focusNode.setAttribute('aria-describedby', 'pt-tooltip');
     geometry = { anchor, root: bounds, tip: { left: bounds.left + position.left, top: bounds.top + position.top, width: position.width, height: position.height } };
     stats.shown++;

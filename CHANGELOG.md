@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2 (native 1.2.0)
+
+- Make Black Mask / Invert conditional: add a full black pixel mask when absent; otherwise select and invert the whole existing mask. Preserve source pixels, mask density/feather, exact pixel selection and one-step history rollback. Report create/invert effects only after commit; retain stable tool/command IDs.
+- Replace detailed hover descriptions with compact title-only hints, intrinsic width capped at 220 px and smaller padding. Preserve the 1.1 hover stability/placement/lifecycle fixes.
+- Bound the main scroll viewport by panel edges with a fixed credit footer; prevent child shrinking and allow native overflow scroll. Add Page Up/Page Down and focused Home/End, preserving text-input keys and revealing Settings on open.
+- Reorganize Settings into View / Tools / Export / Help tabs with roving keyboard navigation, short visibility labels, synchronized caption controls, an Arrange shortcut and direct report actions. Keep long usage text behind Tool guide and retain drafts across tabs.
+- Add whole-mask inversion/repeat/failure, scroll-boundary and settings-tab regression coverage. Latest Photoshop host acceptance remains outstanding.
+
 ## 1.1 (native 1.1.0)
 
 - Fix premature tooltip dismissal paths: fit height into free space above/below the anchor rather than covering the hovered button, ignore child blur/layout events, reposition on real resize/scroll, retain pointer transfer and cancel stale timers. Cache geometry during pointer movement; include tooltip counters/last dismissal in reports.

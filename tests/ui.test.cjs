@@ -153,7 +153,7 @@ test('icon-only tools expose real hover/focus hints; Escape dismisses the hint b
   await view.elements['layers.curves'].fire('focus');
   const hint = find(view.root, 'pt-tooltip');
   assert.equal(hint.hidden, false); assert.match(find(view.root, 'pt-tooltip-title').textContent, /Curves/);
-  assert.match(find(view.root, 'pt-tooltip-body').textContent, /clipped/);
+  assert.equal(find(view.root, 'pt-tooltip-body'), null);
   await view.root.fire('keydown', { key: 'Escape' }); assert.equal(hint.hidden, true); assert.equal(view.elements.options.hidden, false);
   await view.root.fire('keydown', { key: 'Escape' }); assert.equal(view.elements.options.hidden, true);
   await view.elements['layers.black-mask'].fire('focus'); view.disable(true); assert.equal(hint.hidden, true);
@@ -169,7 +169,7 @@ test('compact layer toolbar preserves icon-only appearance and tool visibility t
   assert.equal(find(f.root, 'png.export-copy').parentNode.getAttribute('data-density'), 'standard');
   assert.deepEqual(JSON.parse(f.stored.get('pngrelay.appearance.v1')), appearance);
   await find(f.root, 'report').fire('click'); const report = f.report();
-  assert.equal(report.version, '1.1.0'); assert.equal(report.displayVersion, '1.1');
+  assert.equal(report.version, '1.2.0'); assert.equal(report.displayVersion, '1.2');
   f.setup.panels.relayPanel.hide(); f.setup.panels.relayPanel.destroy();
 });
 test('Arrange never runs a Photoshop tool and updates the actual toolbar before saving', async () => {
@@ -191,4 +191,15 @@ test('button order survives recreation/reload and keeps export settings and visi
   assert.ok(actions.children.indexOf(find(reloaded.root, 'layers.smart-object')) > actions.children.indexOf(find(reloaded.root, 'layers.curves')));
   await find(reloaded.root, 'report').fire('click'); assert.deepEqual(reloaded.report().interface.order, saved.ids);
   assert.ok(reloaded.report().interface.tooltip); reloaded.setup.panels.relayPanel.destroy();
+});
+test('compact Settings tabs keep independent drafts, roving keyboard navigation and synchronized label controls', async () => {
+  const { view } = panel(); await view.elements.settings.fire('click');
+  assert.equal(view.elements['settings-view'].hidden, false); assert.equal(view.elements['settings-export'].hidden, true);
+  view.elements.compression.value = ''; await view.elements['tab-export'].fire('click');
+  assert.equal(view.elements['settings-export'].hidden, false); assert.equal(view.elements['tab-export'].getAttribute('aria-selected'), 'true');
+  await view.elements['tab-export'].fire('keydown', { key: 'ArrowRight' }); assert.equal(view.elements['settings-help'].hidden, false);
+  await view.elements['tab-help'].fire('keydown', { key: 'Home' }); assert.equal(view.elements['settings-view'].hidden, false);
+  view.elements['appearance-labels'].checked = true; await view.elements['appearance-labels'].fire('change'); assert.equal(view.appearance().labels, true);
+  await view.elements.labels.fire('click'); assert.equal(view.elements['appearance-labels'].checked, false); assert.equal(view.values().compression, '');
+  await view.elements.settingsClose.fire('click'); assert.equal(view.elements.options.hidden, true); view.dispose();
 });

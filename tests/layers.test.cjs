@@ -69,10 +69,10 @@ test('black mask always uses Hide All and preserves feathered selection, then se
   assert.equal(r.blackMaskAdded, true); assert.equal(f.data.get(f.original).mask, 'black'); assert.equal(f.data.size, 2);
   assert.equal(f.doc.selection.mask, mask); assert.equal(f.doc.channels.length, 1); assert.equal(f.doc.activeChannels[0].kind, 'mask');
 });
-test('existing masks, locked/background layers and ambiguous targets are preserved and rejected clearly', async () => {
-  for (const values of [{ hasUserMask: true, mask: 'existing' }, { isBackgroundLayer: true }, { allLocked: true }]) {
+test('locked/background layers and ambiguous targets are preserved and rejected clearly', async () => {
+  for (const values of [{ isBackgroundLayer: true }, { allLocked: true }]) {
     const f = layerFixture(); Object.assign(f.data.get(f.original), values); const r = await f.run('layers.black-mask');
-    assert.equal(r.status, values.hasUserMask ? 'complete' : 'error'); assert.ok(!f.events.includes('suspend')); for (const [key, value] of Object.entries(values)) assert.equal(f.data.get(f.original)[key], value);
+    assert.equal(r.status, 'error'); assert.ok(!f.events.includes('suspend')); for (const [key, value] of Object.entries(values)) assert.equal(f.data.get(f.original)[key], value);
   }
   for (const tool of ['layers.black-mask', 'layers.curves', 'layers.hue-saturation']) for (const ids of [[], ['original', 'other']]) {
     const f = layerFixture(); f.select(ids.map(key => f[key])); const r = await f.run(tool); assert.equal(r.status, 'error'); assert.match(r.error, /exactly one/); assert.ok(!f.events.includes('suspend'));
@@ -156,4 +156,21 @@ test('invalid native target references never broaden the operation to the visibl
   const f = layerFixture({ layerRefs: [{ _ref: 'layer', _id: 9999 }] });
   const r = await f.run('layers.smart-object'); assert.equal(r.status, 'error'); assert.equal(r.failure.step, 'resolve-targets');
   assert.ok(!f.events.includes('suspend')); assert.ok(!f.events.includes('mergeVisible')); assert.equal(f.data.size, 2);
+});
+test('Mask inverts the whole existing mask, preserves the pixel selection and reverses on the next click', async () => {
+  const f = layerFixture(), original = f.data.get(f.original), pixels = [0, 32, 190, 255], selection = f.doc.selection.mask;
+  original.hasUserMask = true; original.mask = pixels.slice(); original.maskDensity = 70; original.maskFeather = 2;
+  const first = await f.run('layers.black-mask'); assert.equal(first.status, 'complete', first.error);
+  assert.equal(first.maskInverted, true); assert.equal(first.blackMaskAdded, false); assert.equal(first.maskAction, 'invert');
+  assert.deepEqual(f.data.get(f.original).mask, [255, 223, 65, 0]); assert.equal(f.doc.selection.mask, selection);
+  assert.equal(f.data.get(f.original).maskDensity, 70); assert.equal(f.data.get(f.original).maskFeather, 2); assert.equal(f.doc.channels.length, 1);
+  const second = await f.run('layers.black-mask'); assert.equal(second.status, 'complete', second.error);
+  assert.deepEqual(f.data.get(f.original).mask, pixels); assert.equal(f.data.size, 2); assert.deepEqual(f.commits, [true, true]);
+  assert.equal(f.doc.activeChannels[0].kind, 'mask');
+});
+test('a failed mask inversion rolls back without claiming a completed effect or changing source pixels', async () => {
+  const f = layerFixture({ action: 'invert' }); f.data.get(f.original).hasUserMask = true; f.data.get(f.original).mask = [0, 20, 255];
+  const selection = f.doc.selection.mask, r = await f.run('layers.black-mask');
+  assert.equal(r.status, 'error'); assert.equal(r.failure.step, 'invert-mask'); assert.equal(r.maskInverted, undefined);
+  assert.deepEqual(f.data.get(f.original).mask, [0, 20, 255]); assert.equal(f.doc.selection.mask, selection); assert.equal(f.doc.channels.length, 1); assert.deepEqual(f.commits, [false]);
 });

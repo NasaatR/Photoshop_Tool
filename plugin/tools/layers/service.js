@@ -131,10 +131,11 @@ function createLayerService(host) {
         const target = ['mask', 'curves', 'hue'].includes(mode) ? oneLayer(selected) : null;
         if (mode === 'mask' && requireLayer(host, doc, target).isBackgroundLayer) throw new Error('Unlock the Background layer before adding a black mask.');
         if (mode === 'mask' && requireLayer(host, doc, target).allLocked) throw new Error('Unlock the selected layer before adding a black mask.');
+        let maskExists = false;
         if (mode === 'mask') {
           const result = await host.batch({ _obj: 'get', _target: [{ _property: 'hasUserMask' }, { _ref: 'layer', _id: target }] });
-          if (result[0].hasUserMask === true) { job.record.layerID = target; job.record.maskReused = true; job.record.mutationCommitted = false; job.record.message = 'Existing mask kept'; return; }
-          if (result[0].hasUserMask !== false) throw new Error('Could not check whether the layer already has a mask.');
+          maskExists = result[0].hasUserMask === true;
+          if (typeof result[0].hasUserMask !== 'boolean') throw new Error('Could not check whether the layer already has a mask.');
         }
         if (mode === 'smart' && selected.length === 1 && requireLayer(host, doc, selected[0]).kind === C.LayerKind.SMARTOBJECT) {
           job.record.layerID = selected[0]; job.record.smartInput = 'selected-layers';
@@ -153,9 +154,12 @@ function createLayerService(host) {
               if (!app.activeDocument || app.activeDocument.id !== sourceID) throw new Error('The active document changed while Camera Raw was open.');
             });
           } else if (mode === 'mask') {
-            await step(job, 'black-mask', 'Adding a black layer mask…', async () => {
+            await step(job, maskExists ? 'invert-mask' : 'black-mask', maskExists ? 'Inverting the existing layer mask…' : 'Adding a black layer mask…', async () => {
               await selectLayer(host, doc, target);
-              await host.batch({ _obj: 'make', new: { _class: 'channel' }, at: { _ref: 'channel', _enum: 'channel', _value: 'mask' }, using: { _enum: 'userMaskEnabled', _value: 'hideAll' } });
+              if (maskExists) {
+                await host.batch({ _obj: 'select', _target: [{ _ref: 'channel', _enum: 'channel', _value: 'mask' }], makeVisible: false });
+                host.cancel(ctx); await host.batch({ _obj: 'invert' });
+              } else await host.batch({ _obj: 'make', new: { _class: 'channel' }, at: { _ref: 'channel', _enum: 'channel', _value: 'mask' }, using: { _enum: 'userMaskEnabled', _value: 'hideAll' } });
               host.cancel(ctx);
             });
             effect = { id: target };
@@ -193,10 +197,10 @@ function createLayerService(host) {
         job.record.layerID = effect.id;
         job.record.smartObjectCreated = effect.created === true;
         if (mode === 'camera') job.record.cameraRawApplied = true;
-        if (mode === 'mask') job.record.blackMaskAdded = true;
+        if (mode === 'mask') { job.record.blackMaskAdded = !maskExists; job.record.maskInverted = maskExists; job.record.maskAction = maskExists ? 'invert' : 'create'; }
         if (mode === 'curves' || mode === 'hue') { job.record.adjustmentCreated = true; job.record.clippedToLayerID = target; }
         if (mode === 'color') job.record.fillCreated = true;
-        job.record.message = mode === 'smart' && !effect.created ? 'Already a Smart Object' : mode === 'camera' ? 'Camera Raw Smart Filter applied' : mode === 'mask' ? 'Black mask added · paint with white to reveal' : names[mode] + (mode === 'smart' ? ' created' : ' added');
+        job.record.message = mode === 'smart' && !effect.created ? 'Already a Smart Object' : mode === 'camera' ? 'Camera Raw Smart Filter applied' : mode === 'mask' ? maskExists ? 'Layer mask inverted' : 'Black mask added · paint with white to reveal' : names[mode] + (mode === 'smart' ? ' created' : ' added');
       } catch (error) {
         if (ctx.isCancelled || error && error.cancelled === true || isCancellation(error)) {
           if (!error || typeof error !== 'object') error = new Error('Cancelled.');

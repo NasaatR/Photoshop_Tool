@@ -85,6 +85,10 @@ function layerFixture(fail = {}) {
         assert.equal(c.duplicate, true); assert.equal(doc.selection.bounds, null);
         const composition = [...data.values()].filter(layer => layer.visible && !layer.empty).map(layer => layer.id);
         remove(active[0]); const id = add('Composite'); item(id).composition = composition; active = [id];
+      } else if (c._obj === 'invert') {
+        assert.equal(doc.activeChannels[0].kind, 'mask'); assert.equal(doc.selection.bounds, null);
+        const layer = item(active[0]); assert.equal(layer.hasUserMask, true);
+        layer.mask = Array.isArray(layer.mask) ? layer.mask.map(value => 255 - value) : layer.mask === 'black' ? 'white' : 'black';
       } else if (c._obj === 'newPlacedLayer') {
         assert.equal(doc.selection.bounds, null); const embedded = active.map(id => structuredClone(item(id)));
         const target = active[0], parent = item(target).parent, index = siblings(parent).indexOf(target);
