@@ -2,12 +2,13 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { releaseInfo } = require('./version.cjs');
 const root = path.resolve(__dirname, '..');
 function createManifest(product, tools) {
   return { manifestVersion: 5, id: product.id, name: product.name, version: product.version, main: 'main.js',
     host: { app: 'PS', minVersion: '26.9.0', data: { apiVersion: 2, enableMenuRecording: true } },
     requiredPermissions: { localFileSystem: 'fullAccess', clipboard: 'readAndWrite' }, entrypoints: [
-      { type: 'panel', id: 'relayPanel', label: { default: product.name }, minimumSize: { width: 176, height: 96 }, maximumSize: { width: 4096, height: 4096 }, preferredDockedSize: { width: 240, height: 350 }, preferredFloatingSize: { width: 252, height: 360 } },
+      { type: 'panel', id: 'relayPanel', label: { default: product.name }, minimumSize: { width: 176, height: 96 }, maximumSize: { width: 4096, height: 4096 }, preferredDockedSize: { width: 240, height: 280 }, preferredFloatingSize: { width: 252, height: 290 } },
       ...tools.map(tool => ({ type: 'command', id: tool.commandId, label: { default: tool.title } }))
     ] };
 }
@@ -33,7 +34,8 @@ function zip(entries) {
 function walk(dir) { return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? walk(path.join(dir, entry.name)) : [path.join(dir, entry.name)]); }
 function build() {
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-  const product = { name: 'Photoshop Tool', version: pkg.version, id: 'com.nasaat.pngrelay', repository: pkg.homepage };
+  const release = releaseInfo(pkg.version);
+  const product = { name: 'Photoshop Tool', version: release.version, displayVersion: release.displayVersion, id: 'com.nasaat.pngrelay', repository: pkg.homepage };
   const tools = require('../plugin/tools/index.js').list();
   fs.writeFileSync(path.join(root, 'plugin/product.json'), JSON.stringify(product, null, 2) + '\n');
   fs.writeFileSync(path.join(root, 'plugin/manifest.json'), JSON.stringify(createManifest(product, tools), null, 2) + '\n');
@@ -41,7 +43,7 @@ function build() {
   const files = walk(runtime).sort((a, b) => a.endsWith('manifest.json') ? -1 : b.endsWith('manifest.json') ? 1 : (a < b ? -1 : a > b ? 1 : 0));
   const entries = files.map(file => [path.relative(runtime, file).split(path.sep).join('/'), fs.readFileSync(file)]);
   entries.push(['LICENSE.txt', fs.readFileSync(path.join(root, 'LICENSE'))]);
-  const filename = 'Photoshop-Tool-' + product.version + '.ccx', output = path.join(root, 'dist', filename);
+  const filename = release.filename, output = path.join(root, 'dist', filename);
   fs.mkdirSync(path.dirname(output), { recursive: true }); fs.writeFileSync(output, zip(entries));
   const sha256 = crypto.createHash('sha256').update(fs.readFileSync(output)).digest('hex');
   fs.writeFileSync(path.join(root, 'dist/SHA256SUMS.txt'), sha256 + '  ' + filename + '\n');

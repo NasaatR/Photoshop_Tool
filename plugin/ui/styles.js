@@ -5,17 +5,17 @@ module.exports = `
  --muted:var(--uxp-host-text-color-secondary,#b0b0b0); --border:var(--uxp-host-border-color,#494949);
  --surface:var(--uxp-host-background-color,#2c2c2c); --raised:var(--uxp-host-widget-background-color,var(--uxp-host-background-color,#333333));
  --primary:var(--uxp-host-widget-hover-background-color,#3c3c3c); --primary-border:var(--uxp-host-border-color,#737373); --status-bg:var(--uxp-host-background-color,#202020);
- --hover:var(--uxp-host-widget-hover-background-color,#414141); --size:44px; --radius:0px; --small-radius:0px;
+ --hover:var(--uxp-host-widget-hover-background-color,#414141); --size:44px; --layer-size:32px; --layer-label-size:56px; --layer-radius:0px; --radius:0px; --small-radius:0px;
  --success:#a2ccac; --error:#efaaa4;
- box-sizing:border-box; display:flex; flex-direction:column; flex:1; width:100%; height:100%; min-width:0; min-height:0;
+ position:relative; box-sizing:border-box; display:flex; flex-direction:column; flex:1; width:100%; height:100%; min-width:0; min-height:0;
  padding:8px; margin:0; overflow:hidden; background-color:var(--bg); color:var(--fg); font-size:12px; font-family:system-ui,sans-serif;
 }
 #photoshoptool * {box-sizing:border-box;}
 #photoshoptool [hidden] {display:none !important;}
 #photoshoptool.pt-dark {--bg:#252525;--fg:#ececec;--muted:#b0b0b0;--border:#494949;--hover:#414141;--surface:#2c2c2c;--raised:#333333;--primary:#3c3c3c;--primary-border:#737373;--status-bg:#202020;}
 #photoshoptool.pt-light {--bg:#eeeeee;--fg:#252525;--muted:#626262;--border:#c2c2c2;--hover:#d8d8d8;--surface:#e6e6e6;--raised:#f8f8f8;--primary:#ffffff;--primary-border:#999999;--status-bg:#e3e3e3;--success:#27663b;--error:#a0372e;}
-#photoshoptool.pt-roomy {--size:50px;}
-#photoshoptool.pt-soft {--radius:10px;--small-radius:6px;}
+#photoshoptool.pt-roomy {--size:50px;--layer-size:36px;--layer-label-size:62px;}
+#photoshoptool.pt-soft {--radius:10px;--small-radius:6px;--layer-radius:8px;}
 #photoshoptool .pt-scroll {flex:1;min-width:0;min-height:0;overflow-y:auto;overflow-x:hidden;padding-bottom:3px;}
 #photoshoptool .pt-toolbar {display:flex;align-items:center;justify-content:space-between;min-width:0;min-height:24px;margin-bottom:6px;}
 #photoshoptool .pt-eyebrow {font-size:10px;font-weight:600;letter-spacing:1px;color:var(--muted);padding-left:2px;}
@@ -39,6 +39,14 @@ module.exports = `
 #photoshoptool.pt-labels.pt-roomy .pt-action {height:78px;}
 #photoshoptool.pt-labels .pt-caption {display:block;margin-top:6px;font-size:10px;font-weight:500;line-height:12px;text-align:center;white-space:normal;max-width:100%;}
 #photoshoptool .pt-actions[data-layout="grid"] .pt-action {flex:1 0 calc(50% - 6px);max-width:calc(50% - 6px);}
+#photoshoptool .pt-actions[data-density="compact"] {margin-right:-4px;}
+#photoshoptool .pt-actions[data-density="compact"] .pt-action {flex:0 0 var(--layer-size);width:var(--layer-size);min-width:var(--layer-size);max-width:var(--layer-size);height:var(--layer-size);margin-right:4px;margin-bottom:4px;border-radius:var(--layer-radius);}
+#photoshoptool .pt-actions[data-density="compact"] .pt-icon {width:18px;height:18px;}
+#photoshoptool.pt-labels .pt-actions[data-density="compact"] .pt-action {flex:1 0 calc(33.333% - 4px);width:auto;min-width:40px;max-width:calc(33.333% - 4px);height:var(--layer-label-size);padding:4px 2px;}
+#photoshoptool.pt-labels .pt-actions[data-density="compact"] .pt-caption {margin-top:4px;font-size:10px;line-height:11px;}
+#photoshoptool .pt-tooltip {position:absolute;z-index:1000;overflow-y:auto;overflow-x:hidden;padding:9px 10px;border:1px solid var(--border);border-radius:var(--small-radius);background-color:var(--raised);color:var(--fg);font-size:11px;line-height:15px;white-space:normal;word-wrap:break-word;}
+#photoshoptool .pt-tooltip-title {font-weight:600;line-height:15px;}
+#photoshoptool .pt-tooltip-body {margin-top:4px;color:var(--muted);line-height:15px;white-space:pre-wrap;}
 #photoshoptool .pt-status-row {display:flex;align-items:center;min-width:0;min-height:30px;margin-top:1px;padding:0 3px 0 7px;border:1px solid var(--border);border-radius:var(--small-radius);background-color:var(--status-bg);}
 #photoshoptool .pt-status {flex:1;min-width:0;min-height:28px;display:flex;align-items:center;cursor:pointer;}
 #photoshoptool .pt-status:focus {outline:1px solid var(--fg);outline-offset:1px;border-radius:var(--small-radius);}

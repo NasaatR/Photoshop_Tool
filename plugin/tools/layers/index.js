@@ -8,6 +8,6 @@ const definitions = [
   ['layers.solid-color', 'addSolidColor', 'Add Solid Color Fill', 'Solid Color', 'color', 'Choose a color and add an editable Solid Color fill layer. It is not clipped.', 'color']
 ];
 module.exports = definitions.map(([id, commandId, title, label, icon, description, mode]) => ({
-  id, commandId, title, label, icon, description, group: 'Layers', defaultVisible: true,
+  id, commandId, title, label, icon, description, group: 'Layers', compact: true, defaultVisible: true,
   execute: job => job.services.layers.run(mode, job)
 }));

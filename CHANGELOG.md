@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0 (native 1.0.0)
+
+- Migrate the owner-requested release policy from 0.3.5 to personal sequential labels: 1.0, 1.1 … 1.9 → 2.0. Derive display/native metadata and installer names from package.json; preserve every issued package, plugin/command ID and preference key. JSON reports retain native version plus displayVersion.
+- Replace title-only hints with a shared in-panel tooltip for tools, settings and report actions. Include action names/descriptions, immediate keyboard focus, short hover intent, canceled stale timers, hoverable text, bounded placement, Escape dismissal and hide/destroy cleanup. No host/document polling.
+- Make Layers icons 32×32 px (Roomy 36×36), with 18 px glyphs and natural wrapping instead of two stretched columns. Caption mode uses compact three-column 56/62 px buttons. Preserve appearance/visibility preferences and resizable scrolling layout.
+- Skip redundant native Move operations for adjustments/fills already above their target; keep explicit placement for groups/clipping chains. Add hover/focus/rapid-transfer/geometry/lifecycle/version and placement regressions.
+- The owner reported 0.3.5 working. Version 1.0 is source/mocked/build checked here; native tooltip/layout and update acceptance remain unverified.
+
 ## 0.3.5
 
 - Add six registry-driven layer commands: Smart Object, Smart Object + Camera Raw, full black layer mask, clipped Curves, clipped Hue/Saturation and Solid Color fill with native color picker.

@@ -88,7 +88,12 @@ test('Curves and Hue/Saturation clip immediately above the selected layer/group,
     assert.equal(newLayer.parent, base.parent); assert.equal(newLayer.isClippingMask, true); assert.equal(r.clippedToLayerID, targetID);
     const list = base.parent == null ? f.doc.layers.map(layer => layer.id) : f.data.get(base.parent).children;
     assert.equal(list[list.indexOf(targetID) - 1], r.layerID); assert.equal(f.doc.selection.mask, mask); assert.equal(f.data.get(f.other).isClippingMask, false);
+    assert.equal(f.events.filter(event => event === 'move').length, target === 'group' ? 1 : 0);
   }
+});
+test('a normally inserted Solid Color fill needs no redundant Move command', async () => {
+  const f = layerFixture(); const r = await f.run('layers.solid-color');
+  assert.equal(r.status, 'complete', r.error); assert.equal(f.events.filter(event => event === 'move').length, 0);
 });
 test('adjustment clipping or selection restoration failure rolls back owned changes', async () => {
   for (const [tool, fail] of [['layers.curves', { clip: true }], ['layers.black-mask', { restore: true }], ['layers.smart-object', { restore: true }]]) {

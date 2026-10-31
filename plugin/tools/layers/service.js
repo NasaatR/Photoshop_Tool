@@ -1,6 +1,6 @@
 'use strict';
 const { withHistory } = require('../../core/host.js');
-const { layersByID, requireLayer, selectLayer, stampVisible, savedChannel, step } = require('../../core/layers.js');
+const { layersByID, requireLayer, directlyAbove, selectLayer, stampVisible, savedChannel, step } = require('../../core/layers.js');
 function validate(doc) {
   if (!doc) throw new Error('Open a document first.');
   if (doc.quickMaskMode) throw new Error('Exit Quick Mask mode first.');
@@ -81,7 +81,7 @@ async function adjustment(host, ctx, doc, job, target, type, name) {
   const id = newLayerID(host, doc, before);
   await step(job, 'clip-adjustment', 'Clipping ' + name + ' to the target layer…', async () => {
     // Explicit placement also handles a selected group, where native Make may insert inside it.
-    await requireLayer(host, doc, id).move(requireLayer(host, doc, target), host.C.ElementPlacement.PLACEBEFORE);
+    if (!directlyAbove(host, doc, id, target)) await requireLayer(host, doc, id).move(requireLayer(host, doc, target), host.C.ElementPlacement.PLACEBEFORE);
     host.cancel(ctx); await selectLayer(host, doc, id);
     requireLayer(host, doc, id).isClippingMask = true;
     host.cancel(ctx);
@@ -163,7 +163,7 @@ function createLayerService(host) {
             effect = { id: newLayerID(host, doc, before) };
             // Insert above the entire clipping chain (or outside a selected group).
             // Unclipping in its middle would release or retarget existing clipped layers.
-            if (anchorID != null) await requireLayer(host, doc, effect.id).move(requireLayer(host, doc, anchorID), C.ElementPlacement.PLACEBEFORE);
+            if (anchorID != null && !directlyAbove(host, doc, effect.id, anchorID)) await requireLayer(host, doc, effect.id).move(requireLayer(host, doc, anchorID), C.ElementPlacement.PLACEBEFORE);
             host.cancel(ctx);
             if (requireLayer(host, doc, effect.id).isClippingMask) requireLayer(host, doc, effect.id).isClippingMask = false;
             await selectLayer(host, doc, effect.id);

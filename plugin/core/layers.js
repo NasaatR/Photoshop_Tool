@@ -9,6 +9,16 @@ function requireLayer(host, doc, id) {
   if (!layer) throw new Error('Expected layer ' + id + ' is no longer present.');
   return layer;
 }
+function directlyAbove(host, doc, id, targetID) {
+  const current = layersByID(doc, host.C), layer = current.get(id), target = current.get(targetID);
+  if (!layer || !target) throw new Error('The layer to position or its target is no longer present.');
+  const parent = layer.parent, targetParent = target.parent;
+  if ((parent ? parent.id : null) !== (targetParent ? targetParent.id : null)) return false;
+  const siblings = targetParent ? targetParent.layers : doc.layers;
+  let previous = null;
+  for (const sibling of siblings) { if (sibling.id === targetID) return previous === id; previous = sibling.id; }
+  return false;
+}
 async function step(job, id, message, work) {
   job.record.operationStep = id; job.record.smartStep = id; job.progress(message);
   try { return await work(); }
@@ -75,4 +85,4 @@ function savedChannel(host, doc, name) {
   if (!channel || channel.kind === host.C.ChannelType.COMPONENT) throw new Error('The owned selection channel is unavailable.');
   return channel;
 }
-module.exports = { layersByID, requireLayer, step, selectLayer, removeOwnedLayer, onlyNewPixel, stampVisible, savedChannel };
+module.exports = { layersByID, requireLayer, directlyAbove, step, selectLayer, removeOwnedLayer, onlyNewPixel, stampVisible, savedChannel };

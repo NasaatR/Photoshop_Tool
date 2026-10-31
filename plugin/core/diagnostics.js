@@ -38,7 +38,7 @@ function createDiagnostics() {
   };
 }
 function formatReport(report) {
-  return report.product + ' ' + report.version + ' — diagnostic report\n' +
+  return report.product + ' ' + (report.displayVersion || report.version) + ' — diagnostic report\n' +
     'Photoshop: ' + (report.photoshop || 'unavailable') + '\nGenerated: ' + report.generatedAt + '\n' +
     'Status: ' + cleanText(report.status, 500) + '\n\n' + JSON.stringify(snapshot(report), null, 2) + '\n';
 }

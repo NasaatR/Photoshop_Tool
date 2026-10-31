@@ -2,7 +2,7 @@
   "manifestVersion": 5,
   "id": "com.nasaat.pngrelay",
   "name": "Photoshop Tool",
-  "version": "0.3.5",
+  "version": "1.0.0",
   "main": "main.js",
   "host": {
     "app": "PS",
@@ -33,11 +33,11 @@
       },
       "preferredDockedSize": {
         "width": 240,
-        "height": 350
+        "height": 280
       },
       "preferredFloatingSize": {
         "width": 252,
-        "height": 360
+        "height": 290
       }
     },
     {

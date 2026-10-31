@@ -3,17 +3,7 @@ const test = require('node:test'), assert = require('node:assert/strict'), fs = 
 const registry = require('../plugin/tools/index.js');
 const { createPanel } = require('../plugin/ui/panel.js');
 const { normalizeAppearance, normalizeExport } = require('../plugin/core/preferences.js');
-class Element {
-  constructor(tag, doc) { this.tagName = tag; this.ownerDocument = doc; this.children = []; this.attributes = {}; this.listeners = {}; this.style = {}; this.hidden = false; this.parentNode = null; this.textContent = ''; }
-  set textContent(v) { this._text = String(v); this.writes = (this.writes || 0) + 1; } get textContent() { return this._text; }
-  setAttribute(k, v) { this.attributes[k] = String(v); if (k === 'id') this.id = v; }
-  appendChild(c) { if (c.parentNode) c.parentNode.removeChild(c); this.children.push(c); c.parentNode = this; return c; }
-  removeChild(c) { this.children.splice(this.children.indexOf(c), 1); c.parentNode = null; }
-  addEventListener(k, fn) { (this.listeners[k] ||= []).push(fn); }
-  async fire(k, event = {}) { event.preventDefault ||= () => {}; for (const fn of this.listeners[k] || []) await fn(event); }
-  set innerHTML(_) { throw new Error('HTML injection'); }
-}
-const makeDocument = () => { const d = { createElement: tag => new Element(tag, d), createElementNS: (_, tag) => new Element(tag, d) }; return d; };
+const { makeDocument } = require('./ui-fixture.cjs');
 function panel(overrides = {}) {
   let runs = [];
   const view = createPanel(makeDocument(), registry.list(), normalizeExport(null), normalizeAppearance(null), {}, { run: id => runs.push(id), external() {}, report() {}, copyReport() {}, draft() {}, changed() {}, appearance() {}, visibility() {}, ...overrides }, '0.3.1');
@@ -156,4 +146,29 @@ test('layer commands are independent of an invalid PNG draft and report the actu
   const r = f.copied(); assert.equal(r.lastOperation.tool, 'layers.smart-object');
   assert.match(r.lastOperation.error, /Open a document/); assert.doesNotMatch(r.lastOperation.error, /Compression/);
   assert.equal(f.pickers(), 0);
+});
+test('icon-only tools expose real hover/focus hints; Escape dismisses the hint before Options', async () => {
+  const { view } = panel();
+  await view.elements.settings.fire('click'); assert.equal(view.elements.options.hidden, false);
+  await view.elements['layers.curves'].fire('focus');
+  const hint = find(view.root, 'pt-tooltip');
+  assert.equal(hint.hidden, false); assert.match(find(view.root, 'pt-tooltip-title').textContent, /Curves/);
+  assert.match(find(view.root, 'pt-tooltip-body').textContent, /clipped/);
+  await view.root.fire('keydown', { key: 'Escape' }); assert.equal(hint.hidden, true); assert.equal(view.elements.options.hidden, false);
+  await view.root.fire('keydown', { key: 'Escape' }); assert.equal(view.elements.options.hidden, true);
+  await view.elements['layers.black-mask'].fire('focus'); view.disable(true); assert.equal(hint.hidden, true);
+  view.dispose();
+});
+test('compact layer toolbar preserves icon-only appearance and tool visibility through the version migration', async () => {
+  const appearance = { schema: 1, labels: false, size: 'compact', corners: 'soft', theme: 'light' };
+  const f = mainFixture({ stored: { 'pngrelay.appearance.v1': JSON.stringify(appearance), 'photoshoptool.designRefresh.v1': '1',
+    'photoshoptool.tools.v1': JSON.stringify({ schema: 1, visible: { 'layers.curves': false } }) } });
+  f.setup.panels.relayPanel.create(f.root);
+  assert.equal(find(f.root, 'layers.curves').hidden, true); assert.equal(find(f.root, 'labels').getAttribute('aria-pressed'), 'false');
+  assert.equal(find(f.root, 'layers.smart-object').parentNode.getAttribute('data-density'), 'compact');
+  assert.equal(find(f.root, 'png.export-copy').parentNode.getAttribute('data-density'), 'standard');
+  assert.deepEqual(JSON.parse(f.stored.get('pngrelay.appearance.v1')), appearance);
+  await find(f.root, 'report').fire('click'); const report = f.report();
+  assert.equal(report.version, '1.0.0'); assert.equal(report.displayVersion, '1.0');
+  f.setup.panels.relayPanel.hide(); f.setup.panels.relayPanel.destroy();
 });

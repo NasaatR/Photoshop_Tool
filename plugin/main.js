@@ -45,7 +45,7 @@ function reportText() {
   capture();
   let platform = 'unknown';
   try { platform = navigator.platform || 'unknown'; } catch (_) {}
-  return formatReport({ schema: 2, product: product.name, version: product.version, generatedAt: new Date().toISOString(), photoshop: environment.photoshop, environment, platform,
+  return formatReport({ schema: 2, product: product.name, version: product.version, displayVersion: product.displayVersion, generatedAt: new Date().toISOString(), photoshop: environment.photoshop, environment, platform,
     status: pending[0], statusState: pending[1], exportClipboard: ps.app.preferences.general.exportClipboard === true, lastOperation: runner.report(),
     interface: { ...lifecycle, appearance, visibility, width: view ? view.root.clientWidth : null, height: view ? view.root.clientHeight : null, backgroundPolling: false, animations: false },
     tools: registry.list().map(t => t.id), diagnostics: diagnostics.report() });
@@ -79,7 +79,7 @@ function mount(root) {
     changed() { try { draft = preferences.saveExport(options()); } catch (e) { failure('export preferences', e); } },
     appearance(value) { appearance = value; try { preferences.saveAppearance(value); } catch (e) { failure('appearance preferences', e); } },
     visibility(value) { visibility = value; try { preferences.saveVisibility(value); } catch (e) { failure('tool visibility preferences', e); } }
-  }, product.version);
+  }, product.displayVersion);
   if (view.root.parentNode !== root) root.appendChild(view.root);
   view.disable(uiBusy); status(pending[0], pending[1]);
 }
@@ -87,5 +87,6 @@ const commands = {};
 registry.list().forEach(tool => { commands[tool.commandId] = () => invoke(tool.id, true); });
 uxp.entrypoints.setup({ commands, panels: { relayPanel: {
   create(root) { lifecycle.creates++; mount(root); }, show(root) { lifecycle.shows++; mount(root); },
-  destroy() { lifecycle.destroys++; capture(); if (view && view.root.parentNode) view.root.parentNode.removeChild(view.root); view = null; }
+  hide() { if (view) view.dismissHints(); },
+  destroy() { lifecycle.destroys++; capture(); if (view) view.dispose(); if (view && view.root.parentNode) view.root.parentNode.removeChild(view.root); view = null; }
 } } });
