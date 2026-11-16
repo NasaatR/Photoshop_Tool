@@ -90,7 +90,7 @@ function mount(root) {
         return true;
       } catch (e) { failure('action preferences', e); return false; }
     },
-    appearance(value) { appearance = value; try { preferences.saveAppearance(value); } catch (e) { failure('appearance preferences', e); } },
+    appearance(value) { appearance = value; try { preferences.saveAppearance(value); return true; } catch (e) { failure('appearance preferences', e); return false; } },
     order(value) { order = value; try { order = preferences.saveOrder(value); } catch (e) { failure('tool order preferences', e); } },
     settingsTab(value) { settingsTab = value; try { preferences.saveSettingsTab(value); } catch (e) { failure('settings navigation', e); } },
     visibility(value) { visibility = value; try { preferences.saveVisibility(value); } catch (e) { failure('tool visibility preferences', e); } }

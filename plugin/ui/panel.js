@@ -5,8 +5,10 @@ const { createTooltips } = require('./tooltips.js');
 const { createReorder } = require('./reorder.js');
 const { scrollKey, revealTop } = require('./scroll.js');
 const { createViewport } = require('./viewport.js');
+const { bindSlider } = require('./sliders.js');
 function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handlers, version, orderDraft = [], settingsTabDraft = 'export') {
   const elements = {}, controls = {}, toolNodes = {}, choices = {};
+  const numberControls = {}, sizeControls = [];
   let appearance = { ...appearanceDraft }, visibility = { ...visibilityDraft };
   let arranger = null, activeSettingsTab = 'view';
   let statusText = null, statusState = null, externalState = null;
@@ -41,6 +43,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     return el;
   }
   const root = make('div', null, { id: 'photoshoptool' }); root.appendChild(make('style', CSS));
+  const sizing = make('style', '', { id: 'sizing' }); root.appendChild(sizing);
   const hints = createTooltips(doc, root, handlers.tooltipTimers);
   const scroll = make('div', null, { id: 'scroll', class: 'pt-scroll', tabindex: '0', role: 'region', 'aria-label': 'Photoshop Tool content' }); root.appendChild(scroll);
   scroll.addEventListener('scroll', hints.relayout);
@@ -123,18 +126,23 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     if (saved === true) settingsStatus.textContent = 'Saved';
     else if (saved === false) settingsStatus.textContent = 'Not saved · see error details';
   }
-  function numberSetting(id, label, value, min, max, step, unit, reset, scope) {
+  function numberSetting(id, label, value, min, max, step, unit, reset, scope, parent = settingsPanels.export, onPreview = null, onCommit = null, railMax = max) {
     const input = make('input', null, { id, type: 'number', min: String(min), max: String(max), step: String(step), 'aria-label': label + ' · ' + unit }); input.value = String(value);
     hints.bind(input, () => ({ title: label + ' · ' + unit }));
-    input.addEventListener('input', () => { settingsStatus.textContent = 'Editing…'; handlers.draft(); });
-    input.addEventListener('change', () => persistSetting(scope));
-    const resetButton = control('reset-' + id, 'Reset', () => { input.value = String(reset); persistSetting(scope); }, 'pt-value-reset', 'Reset ' + label.toLowerCase() + ' to ' + reset + ' ' + unit);
+    const preview = value => { settingsStatus.textContent = 'Editing…'; if (onPreview) onPreview(value); else handlers.draft(); };
+    const commit = value => { if (onCommit) onCommit(value); else persistSetting(scope); };
+    input.addEventListener('input', () => preview(String(input.value).trim() ? Number(input.value) : NaN));
+    input.addEventListener('change', () => commit(String(input.value).trim() ? Number(input.value) : NaN));
+    const resetButton = control('reset-' + id, 'Reset', () => { const value = typeof reset === 'function' ? reset() : reset; input.value = String(value); numberControls[id].sync(value, true); preview(value); commit(value); }, 'pt-value-reset', 'Reset ' + label.toLowerCase());
     const field = append(make('label', null, { class: 'pt-number-field' }), [make('span', label, { class: 'pt-field-label' }), append(make('span', null, { class: 'pt-number-value' }), [input, make('span', unit, { class: 'pt-unit' })])]);
-    settingsPanels.export.appendChild(append(make('div', null, { class: 'pt-value-row' }), [field, resetButton]));
+    const slider = make('sp-slider', null, { id: 'slider-' + id, class: 'pt-slider', 'show-value': 'false', 'aria-label': label + ' · ' + unit });
+    hints.bind(slider, () => ({ title: label + ' · ' + unit }));
+    parent.appendChild(append(make('div', null, { class: 'pt-slider-setting' }), [append(make('div', null, { class: 'pt-value-row' }), [field, resetButton]), slider]));
+    numberControls[id] = bindSlider(input, slider, { min, max, step, railMax, reset, preview, commit });
     return input;
   }
   heading(settingsPanels.export, 'Expand Selection');
-  const expandPx = numberSetting('expandPx', 'Grow by', draft.expandPx ?? 8, 1, 500, 1, 'px', 8, 'selection');
+  const expandPx = numberSetting('expandPx', 'Grow by', draft.expandPx ?? 8, 1, 500, 1, 'px', 8, 'selection', settingsPanels.export, null, null, 64);
   settingsPanels.export.appendChild(make('p', 'Each click grows the current selection. 1–500 px.', { class: 'pt-hint' }));
   heading(settingsPanels.export, 'Smart Area');
   const smartAreaBlurPercent = numberSetting('smartAreaBlurPercent', 'Edge blur', draft.smartAreaBlurPercent ?? 5, 0, 100, 0.1, '%', 5, 'smart');
@@ -158,6 +166,16 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     wrapper.appendChild(row); settingsPanels.view.appendChild(wrapper);
   }
   group('size', 'Density', [['compact', 'Compact'], ['roomy', 'Roomy']]);
+  const defaultHeight = () => appearance.size === 'roomy' ? 48 : 40;
+  function setHeight(value, save) {
+    if (!Number.isInteger(value) || value < 36 || value > 4096) {
+      elements.buttonSize.setAttribute('aria-invalid', 'true'); settingsStatus.textContent = 'Height must be a whole number from 36 to 4096 px'; return;
+    }
+    elements.buttonSize.removeAttribute('aria-invalid'); const saved = applyAppearance({ buttonSize: value === defaultHeight() ? undefined : value }, false, save);
+    if (save) settingsStatus.textContent = saved === true ? 'Saved' : saved === false ? 'Not saved · see error details' : 'Size preview updated';
+  }
+  numberSetting('buttonSize', 'Main button height', appearance.buttonSize ?? defaultHeight(), 36, 4096, 1, 'px', () => defaultHeight(), 'appearance', settingsPanels.view, value => setHeight(value, false), value => setHeight(value, true), 96);
+  sizeControls.push('buttonSize');
   group('corners', 'Corners', [['square', 'Square'], ['soft', 'Rounded']]);
   group('theme', 'Theme', [['host', 'Auto'], ['dark', 'Dark'], ['light', 'Light']]);
   settingsPanels.view.appendChild(checkbox('appearance-labels', 'Button labels', appearance.labels, () => applyAppearance({ labels: elements['appearance-labels'].checked })));
@@ -209,15 +227,23 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
       group.actions.setAttribute('data-density', group.tools.every(tool => tool.compact) ? 'compact' : 'standard');
     }
   }
-  function applyAppearance(patch, initial) {
+  function applyAppearance(patch, initial, save = true) {
     hints.dismiss();
     appearance = { ...appearance, ...patch };
-    root.className = 'pt-root pt-' + appearance.theme + (appearance.labels ? ' pt-labels' : '') + (appearance.size === 'roomy' ? ' pt-roomy' : '') + (appearance.corners === 'soft' ? ' pt-soft' : '');
+    if (patch.size && !Object.prototype.hasOwnProperty.call(patch, 'buttonSize')) delete appearance.buttonSize;
+    const pixels = appearance.buttonSize ?? (appearance.size === 'roomy' ? 48 : 40);
+    const sizeRule = '#photoshoptool.pt-root {--size:' + pixels + 'px;}';
+    if (sizing.textContent !== sizeRule) sizing.textContent = sizeRule;
+    if (initial || patch.size || Object.prototype.hasOwnProperty.call(patch, 'buttonSize')) {
+      if (elements.buttonSize) { elements.buttonSize.value = String(pixels); numberControls.buttonSize.sync(pixels, !!patch.size); }
+    }
+    const className = 'pt-root pt-' + appearance.theme + (appearance.labels ? ' pt-labels' : '') + (appearance.size === 'roomy' ? ' pt-roomy' : '') + (appearance.corners === 'soft' ? ' pt-soft' : '');
+    if (root.className !== className) root.className = className;
     elements['appearance-labels'].checked = appearance.labels;
     labelToggle.setAttribute('aria-pressed', String(appearance.labels));
     labelToggle.setAttribute('aria-label', appearance.labels ? 'Hide button labels' : 'Show button labels');
     for (const choice of Object.values(choices)) choice.node.setAttribute('aria-pressed', String(appearance[choice.field] === choice.value));
-    if (!initial) handlers.appearance({ ...appearance });
+    if (!initial && save) return handlers.appearance({ ...appearance });
   }
   selectSettingsTab(settingsTabDraft, true); updateVisibility(); applyAppearance({}, true);
   return { root, elements, mount: viewport.mount, dismissHints() { hints.dismiss('panel-hidden'); arranger.cancel(); }, tooltipReport: hints.report, settingsTab: () => activeSettingsTab, scrollReport: () => ({ layout: viewport.report(), height: scroll.clientHeight, contentHeight: scroll.scrollHeight, top: scroll.scrollTop }), order: arranger.order, dispose() { viewport.destroy(); arranger.destroy(); hints.destroy(); }, appearance: () => ({ ...appearance }), visibility: () => ({ ...visibility }),
@@ -240,6 +266,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
       [...tools.map(t => t.id), 'external', 'report', 'copyReport', 'copyReportHelp', 'arrange', 'arrangeDone', 'arrangeReset', 'arrangeTools'].forEach(id => controls[id](value));
       for (const id of ['overwrite', 'srgb', 'compression', 'smartAreaBlurPercent', 'expandPx']) if (elements[id].disabled !== value) elements[id].disabled = value;
       for (const id of ['compression', 'smartAreaBlurPercent', 'expandPx']) controls['reset-' + id](value);
+      for (const [id, field] of Object.entries(numberControls)) { field.disable(value); if (sizeControls.includes(id)) { elements[id].disabled = value; controls['reset-' + id](value); } }
     }
   };
 }

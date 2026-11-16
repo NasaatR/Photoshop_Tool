@@ -296,3 +296,31 @@ test('failed settings storage never claims Saved or clears the draft, and reset 
   view.disable(false); await view.elements['reset-expandPx'].fire('click'); assert.equal(view.elements.expandPx.value, '8');
   view.dispose(); f.setup.panels.relayPanel.destroy();
 });
+test('main height slider previews existing buttons live, saves on release and resets to the active density preset', async () => {
+  const f = mainFixture({ stored: { 'photoshoptool.designRefresh.v1': '1', 'pngrelay.appearance.v1': JSON.stringify({ schema: 1, labels: false, corners: 'soft', size: 'compact', theme: 'light' }) } }); f.setup.panels.relayPanel.create(f.root);
+  const original = find(f.root, 'png.export-copy'), before = f.stored.get('pngrelay.appearance.v1'), slider = find(f.root, 'slider-buttonSize');
+  assert.match(find(f.root, 'sizing').textContent, /40px/); slider.value = 56; await slider.fire('input');
+  assert.match(find(f.root, 'sizing').textContent, /56px/); assert.equal(f.stored.get('pngrelay.appearance.v1'), before); assert.equal(find(f.root, 'png.export-copy'), original);
+  await slider.fire('change'); assert.equal(JSON.parse(f.stored.get('pngrelay.appearance.v1')).buttonSize, 56); assert.equal(find(f.root, 'settingsStatus').textContent, 'Saved');
+  await find(f.root, 'size-roomy').fire('click'); assert.match(find(f.root, 'sizing').textContent, /48px/); assert.equal(JSON.parse(f.stored.get('pngrelay.appearance.v1')).buttonSize, undefined);
+  slider.value = 70; await slider.fire('input'); await slider.fire('change'); await find(f.root, 'reset-buttonSize').fire('click');
+  assert.equal(find(f.root, 'buttonSize').value, '48'); assert.equal(JSON.parse(f.stored.get('pngrelay.appearance.v1')).buttonSize, undefined);
+  f.setup.panels.relayPanel.destroy();
+});
+test('action sliders pair with exact inputs, preserve unrelated drafts and persist only their own group', async () => {
+  const f = mainFixture(); f.setup.panels.relayPanel.create(f.root);
+  find(f.root, 'compression').value = ''; const slider = find(f.root, 'slider-expandPx'); assert.equal(slider.tagName, 'sp-slider');
+  slider.value = 24; await slider.fire('input'); assert.equal(find(f.root, 'expandPx').value, '24'); assert.equal(f.stored.has('photoshoptool.selection.v1'), false);
+  await slider.fire('change'); assert.equal(JSON.parse(f.stored.get('photoshoptool.selection.v1')).expandPx, 24); assert.equal(find(f.root, 'compression').value, '');
+  await slider.fire('dblclick'); assert.equal(find(f.root, 'expandPx').value, '8'); assert.equal(JSON.parse(f.stored.get('photoshoptool.selection.v1')).expandPx, 8);
+  find(f.root, 'slider-smartAreaBlurPercent').value = 0; await find(f.root, 'slider-smartAreaBlurPercent').fire('change'); assert.equal(JSON.parse(f.stored.get('photoshoptool.smartArea.v2')).blurPercent, 0);
+  f.setup.panels.relayPanel.destroy();
+});
+test('custom height reloads without resetting identity/theme/order and invalid typed height remains a draft', async () => {
+  const f = mainFixture({ stored: { 'photoshoptool.designRefresh.v1': '1', 'pngrelay.appearance.v1': JSON.stringify({ schema: 1, labels: false, corners: 'soft', size: 'compact', theme: 'dark', buttonSize: 120 }) } }); f.setup.panels.relayPanel.create(f.root);
+  assert.equal(find(f.root, 'buttonSize').value, '120'); assert.equal(find(f.root, 'slider-buttonSize').getAttribute('max'), '120');
+  find(f.root, 'buttonSize').value = '20'; await find(f.root, 'buttonSize').fire('change'); await find(f.root, 'theme-light').fire('click');
+  assert.equal(find(f.root, 'buttonSize').value, '20'); assert.match(find(f.root, 'sizing').textContent, /120px/); assert.equal(find(f.root, 'buttonSize').getAttribute('aria-invalid'), 'true');
+  assert.equal(JSON.parse(f.stored.get('pngrelay.appearance.v1')).buttonSize, 120);
+  f.setup.panels.relayPanel.destroy();
+});

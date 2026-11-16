@@ -37,7 +37,8 @@ function normalizeExport(raw) {
 function normalizeAppearance(raw) {
   const r = raw && raw.schema === 1 ? raw : {};
   return { schema: 1, labels: r.labels === true, size: r.size === 'roomy' ? 'roomy' : 'compact',
-    corners: r.corners === 'soft' ? 'soft' : 'square', theme: ['host', 'dark', 'light'].includes(r.theme) ? r.theme : 'host' };
+    corners: r.corners === 'soft' ? 'soft' : 'square', theme: ['host', 'dark', 'light'].includes(r.theme) ? r.theme : 'host',
+    ...(Number.isInteger(r.buttonSize) && r.buttonSize >= 36 && r.buttonSize <= 4096 ? { buttonSize: r.buttonSize } : {}) };
 }
 function readExportDraft(draft) {
   const raw = String(draft.compression), compression = Number(raw);

@@ -6,7 +6,7 @@ A modular Adobe Photoshop UXP toolbox by NasaatR. It combines full-resolution PN
 
 ## Download and install
 
-**Development preview 1.6:** [Download Photoshop-Tool-v1.6.ccx](https://github.com/NasaatR/Photoshop_Tool/raw/refs/heads/develop/dist/Photoshop-Tool-v1.6.ccx). This is the installable plugin, not GitHub's source ZIP. [SHA-256](dist/SHA256SUMS.txt).
+**Development preview 1.7:** [Download Photoshop-Tool-v1.7.ccx](https://github.com/NasaatR/Photoshop_Tool/raw/refs/heads/develop/dist/Photoshop-Tool-v1.7.ccx). This is the installable plugin, not GitHub's source ZIP. [SHA-256](dist/SHA256SUMS.txt).
 
 1. Close Photoshop. Double-click the `.ccx` file and approve installation/update in Creative Cloud Desktop.
 2. Open Photoshop → **Plugins → Photoshop Tool → Photoshop Tool**.
@@ -18,7 +18,7 @@ Code is in **develop**, as requested by the repository owner. `main` is delibera
 
 ## Version numbering
 
-The owner-requested migration starts **v1.0**, native manifest/package **1.0.0**, after the issued **0.3.5**. Future personal releases are **1.1 … 1.9 → 2.0**, with native **1.1.0 … 1.9.0 → 2.0.0**. These are sequential release labels, not compatibility promises. `package.json.version` is the single source; the build derives display version and `Photoshop-Tool-v1.6.ccx`. Current release: display **1.6**, native **1.6.0**. The panel/report header shows 1.6; JSON diagnostics retain native `version: 1.6.0` plus `displayVersion: 1.6`. Plugin/command IDs and settings stay unchanged. Issued 0.3.x packages keep their names/bytes; installing this CCX is the normal update path.
+The owner-requested migration starts **v1.0**, native manifest/package **1.0.0**, after the issued **0.3.5**. Future personal releases are **1.1 … 1.9 → 2.0**, with native **1.1.0 … 1.9.0 → 2.0.0**. These are sequential release labels, not compatibility promises. `package.json.version` is the single source; the build derives display version and `Photoshop-Tool-v1.7.ccx`. Current release: display **1.7**, native **1.7.0**. The panel/report header shows 1.7; JSON diagnostics retain native `version: 1.7.0` plus `displayVersion: 1.7`. Plugin/command IDs and settings stay unchanged. Issued 0.3.x packages keep their names/bytes; installing this CCX is the normal update path.
 
 ## Included tools
 
@@ -74,13 +74,21 @@ Settings use **Actions / View / Buttons / Help** with Actions selected initially
 
 Native acceptance for this update: expand an irregular selection twice and undo once; change Grow by and reopen settings; check PNG/PSD glyphs with captions hidden, large area buttons, compact layer buttons and open settings at narrow/short panel sizes. Native Photoshop rendering/execution is not available here.
 
+## Compact layout and sliders (1.7)
+
+The main sections use four columns instead of two: PNG, Copy, Smart Area and PSD fit on one row at ordinary panel widths. Minimum hit widths keep narrow panels and captions readable by wrapping; optional PNG only joins the same flow. Main icon buttons default to **40 px** high (Roomy: 48 px), while Layers retains its compact tier. Format names remain visible with captions hidden.
+
+**Settings → View → Main button height** pairs a native UXP Spectrum slider with exact px entry. Drag previews the existing buttons immediately, saving on release. Reset follows the current Compact/Roomy preset; choosing a density preset clears a custom height. Supported exact heights are 36–4096 px (minimum fits the format glyph; maximum follows the panel size contract). The convenient slider rail starts at 36–96 px and extends for a larger valid typed value without shrinking under a moving thumb. Captions add 30 px for readable text.
+
+Actions also pairs sliders with numeric entry for Grow by, Edge blur and Compression. Grow by’s convenience rail starts at 1–64 px; exact entry still accepts the native 1–500 px range. Zero/fractional values remain valid where the action supports them. **Double-click a slider or use Reset** to restore its default; numeric-field double-click keeps text selection. Sliders do not execute Photoshop actions. Failed saves retain the preview/draft and do not claim Saved. Existing controls, focus, settings and normal-flow scrolling are retained. Native Photoshop slider/rendering acceptance remains unverified here.
+
 ## Arrange buttons
 
 Use the **Arrange buttons** arrow icon beside the caption/settings controls. In this mode, drag a tool onto its desired position, or click the tool and then the destination. Arrow keys move the focused tool one position. Order is changed within Export & copy, Area & transform or Layers; moving does not run a Photoshop command. Choose **Done** or Escape to finish; **Reset order** restores the registry order without changing tool visibility, appearance or export options. Ordering includes hidden tools, survives recreation/update and appends new tools to their section. Settings failures appear in the status/report.
 
 ## Export behavior and limits
 
-- Windows 11; Photoshop **26.9+**, UXP API v2. Version 0.1.1 was reported working by the user. This 1.6 build has not been executed in a real Photoshop host here.
+- Windows 11; Photoshop **26.9+**, UXP API v2. Version 0.1.1 was reported working by the user. This 1.7 build has not been executed in a real Photoshop host here.
 - Original canvas dimensions and source 8/16-bit depth; RGB/Grayscale only. No lossy compression or arbitrary resizing. Other modes and 32-bit/HDR are refused instead of silently converted. Optional sRGB conversion changes only the temporary copy.
 - PNG uses current in-memory artwork, including unsaved edits. It does **not** automatically save/flatten the source PSD. Artboards export the full document canvas, not separate board files.
 - Smart Area input follows the table below. The visible-composite path uses native Stamp Visible (`mergeVisible` with `duplicate: true`, equivalent to Shift+Ctrl+Alt+E) on an owned temporary pixel layer at the top. Original layers remain editable and hidden layers stay excluded. The full stamp and helper are removed after extracting the region, leaving exactly one new Smart Object. The original pixel selection is saved/loaded through an owned alpha channel to preserve its exact feathered/nonrectangular shape. Extraction applies that shape; Smart Area then adds a separate soft mask on the parent object. The temporary channel is removed afterward. No selection means an explicit full-canvas rectangle, including when artboards are present; the original no-selection state is restored. Quick Mask and non-composite channels are still refused. Native Photoshop masks/styles/blending semantics apply.
@@ -131,7 +139,7 @@ The owner reported the 0.3.5 layer tools working. This update additionally skips
 
 Local checks cover registry extension/duplicate IDs, manifest parity, source syntax/imports, preference preservation, direct folder resolution with no picker, full-size 16-bit output, PNG structure/CRC verification without opening a document, full-composition copy with an existing selection, copy/save variants, file backup/restore failures, stale targets, cancellation, Smart Object rollback/retry, keyboard controls, one-time Copy visibility migration, idle no-op rendering and report export/failures/history bounds. They use mocks, not real Photoshop. CCX files are also checked with an independent ZIP reader.
 
-Not verified here: native Photoshop 1.6 installation/rendering/resizing, real Stamp Visible/selection-alpha behavior, PNG appearance/ICC, external paste/alpha, text clipboard or Microsoft Defender acceptance. UI structure/keyboard/preferences are checked with DOM mocks; a screenshot/native visual review of this version was not available. White flashing remains undiagnosed. No antivirus certification or release signing is claimed. A focused host check is: select a region with a text/group layer active (then with no active layer), click Smart Area, confirm one new object/open contents plus PNG/copy and unchanged original layers/selection; repeat with no pixel selection to check the whole canvas. Return Copy report if an action fails.
+Not verified here: native Photoshop 1.7 installation/rendering/resizing, real Stamp Visible/selection-alpha behavior, PNG appearance/ICC, external paste/alpha, text clipboard or Microsoft Defender acceptance. UI structure/keyboard/preferences are checked with DOM mocks; a screenshot/native visual review of this version was not available. White flashing remains undiagnosed. No antivirus certification or release signing is claimed. A focused host check is: select a region with a text/group layer active (then with no active layer), click Smart Area, confirm one new object/open contents plus PNG/copy and unchanged original layers/selection; repeat with no pixel selection to check the whole canvas. Return Copy report if an action fails.
 
 Original project: **[NasaatR/Photoshop_Tool](https://github.com/NasaatR/Photoshop_Tool)**. MIT licensed; [LICENSE](LICENSE). The understated UI credit is **Made by Nasaat**; it does not add a restriction to the MIT license. No third-party runtime dependencies or copied exporter code are bundled.
 

@@ -5,7 +5,7 @@ module.exports = `
  --muted:var(--uxp-host-text-color-secondary,#b0b0b0); --border:var(--uxp-host-border-color,#494949);
  --surface:var(--uxp-host-background-color,#2c2c2c); --raised:var(--uxp-host-widget-background-color,var(--uxp-host-background-color,#333333));
  --primary:var(--uxp-host-widget-hover-background-color,#3c3c3c); --primary-border:var(--uxp-host-border-color,#737373); --status-bg:var(--uxp-host-background-color,#202020);
- --hover:var(--uxp-host-widget-hover-background-color,#414141); --size:44px; --layer-size:32px; --layer-label-size:56px; --layer-radius:0px; --radius:0px; --small-radius:0px;
+ --hover:var(--uxp-host-widget-hover-background-color,#414141); --size:40px; --layer-size:32px; --layer-label-size:56px; --layer-radius:0px; --radius:0px; --small-radius:0px;
  --success:#a2ccac; --error:#efaaa4;
  position:relative; box-sizing:border-box; display:flex; flex-direction:column; flex:1; width:100%; height:100%; min-width:0; min-height:0;
  padding:8px; margin:0; overflow:hidden; background-color:var(--bg); color:var(--fg); font-size:12px; font-family:system-ui,sans-serif;
@@ -14,7 +14,7 @@ module.exports = `
 #photoshoptool [hidden] {display:none !important;}
 #photoshoptool.pt-dark {--bg:#252525;--fg:#ececec;--muted:#b0b0b0;--border:#494949;--hover:#414141;--surface:#2c2c2c;--raised:#333333;--primary:#3c3c3c;--primary-border:#737373;--status-bg:#202020;}
 #photoshoptool.pt-light {--bg:#eeeeee;--fg:#252525;--muted:#626262;--border:#c2c2c2;--hover:#d8d8d8;--surface:#e6e6e6;--raised:#f8f8f8;--primary:#ffffff;--primary-border:#999999;--status-bg:#e3e3e3;--success:#27663b;--error:#a0372e;}
-#photoshoptool.pt-roomy {--size:50px;--layer-size:36px;--layer-label-size:62px;}
+#photoshoptool.pt-roomy {--size:48px;--layer-size:36px;--layer-label-size:62px;}
 #photoshoptool.pt-soft {--radius:10px;--small-radius:6px;--layer-radius:8px;}
 #photoshoptool .pt-scroll {display:block;position:relative;flex:1;min-width:0;min-height:0;overflow-y:auto;overflow-x:hidden;padding:0 3px 4px 0;}
 #photoshoptool .pt-scroll > * {flex-shrink:0;}
@@ -40,10 +40,10 @@ module.exports = `
 #photoshoptool .pt-small .pt-icon {width:16px;height:16px;}
 #photoshoptool .pt-small[aria-pressed="true"],#photoshoptool .pt-small[aria-expanded="true"] {background-color:var(--raised);border-color:var(--border);}
 #photoshoptool .pt-caption {display:none;}
-#photoshoptool.pt-labels .pt-action {height:70px;flex-direction:column;padding:7px 4px;}
-#photoshoptool.pt-labels.pt-roomy .pt-action {height:78px;}
+#photoshoptool.pt-labels .pt-action {height:calc(var(--size) + 30px);flex-direction:column;padding:7px 4px;}
 #photoshoptool.pt-labels .pt-caption {display:block;margin-top:6px;font-size:10px;font-weight:500;line-height:12px;text-align:center;white-space:normal;max-width:100%;}
-#photoshoptool .pt-actions[data-layout="grid"] .pt-action {flex:1 0 calc(50% - 6px);max-width:calc(50% - 6px);}
+#photoshoptool .pt-actions[data-density="standard"] .pt-action {flex:0 0 calc(25% - 6px);max-width:none;min-width:44px;}
+#photoshoptool.pt-labels .pt-actions[data-density="standard"] .pt-action {min-width:76px;}
 #photoshoptool .pt-actions[data-density="compact"] {margin-right:-4px;}
 #photoshoptool .pt-actions[data-density="compact"] .pt-action {flex:0 0 var(--layer-size);width:var(--layer-size);min-width:var(--layer-size);max-width:var(--layer-size);height:var(--layer-size);margin-right:4px;margin-bottom:4px;border-radius:var(--layer-radius);}
 #photoshoptool .pt-actions[data-density="compact"] .pt-icon {width:18px;height:18px;}
@@ -94,6 +94,8 @@ module.exports = `
 #photoshoptool .pt-unit {font-size:10px;color:var(--muted);margin:0 4px;}
 #photoshoptool .pt-value-reset {min-height:27px;min-width:34px;margin-left:3px;padding:2px 3px;font-size:10px;}
 #photoshoptool .pt-settings-status {font-size:10px;line-height:14px;color:var(--muted);margin:6px 0 0;}
+#photoshoptool .pt-slider-setting {min-width:0;margin:2px 0 5px;}
+#photoshoptool .pt-slider {display:block;width:100%;min-width:0;min-height:24px;margin:0;color:var(--fg);}
 #photoshoptool .pt-tool-options {display:flex;flex-wrap:wrap;min-width:0;}
 #photoshoptool .pt-tool-options label {flex:1 0 110px;min-width:0;max-width:100%;}
 #photoshoptool .pt-report-actions {display:flex;flex-wrap:wrap;min-width:0;}

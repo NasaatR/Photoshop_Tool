@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7 (native 1.7.0)
+
+- Use a four-column main button flow with wrapping minimum hit/caption widths. Reduce default icon button height to 40 px (Roomy 48), preserving compact Layers, PNG/PSD glyphs and the normal-flow scroll viewport.
+- Add native UXP Spectrum sliders beside exact input for main button height and action parameters. Preview height without rebuilding buttons; persist on release. Extend convenience rails for valid typed values, keep rails stable while dragging and avoid redundant CSS/control writes.
+- Pair slider/number/reset values, support double-click reset on sliders, preserve numeric-field text selection, zero/fractional values and unrelated invalid drafts. Reset height follows the active density preset; choosing a preset clears the optional custom height while retaining legacy appearance keys/values.
+- Preserve workflows, IDs, visibility/order and old installers. Tests cover synchronization, preview/commit, resets, rail extension, disabled state and persistence; native Photoshop rendering/slider execution remains unverified here.
+
 ## 1.6 (native 1.6.0)
 
 - Add Expand Selection using the native selection.expand API: default 8 px, configurable integer 1–500 px, one undo step per click, no layer/pixel/channel/file/clipboard mutation. Validate missing selections, Quick Mask and document changes; retain native errors and roll back partial/cancelled expansion.
