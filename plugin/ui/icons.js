@@ -1,5 +1,6 @@
 'use strict';
 const paths = {
+  file: 'M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm0 2v16h12V8h-5V4H6zm9 1v1h1l-1-1z',
   arrange: 'M7 2 3 6h3v6h2V6h3L7 2zm10 20 4-4h-3v-6h-2v6h-3l4 4zM12 4h9v2h-9V4zM3 18h9v2H3v-2z',
   smart: 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm0 2v14h14V5H5zm2 2h10v10H7V7zm2 2v6h6V9H9z',
   camera: 'M8 3h8l2 3h3v14H3V6h3l2-3zm1 2L7 8H5v10h14V8h-3l-2-3H9zm3 4a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4z',
@@ -21,4 +22,10 @@ function icon(doc, name) {
   svg.setAttribute('class', 'pt-icon'); svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('focusable', 'false');
   const path = doc.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('fill', 'currentColor'); path.setAttribute('d', paths[name]); svg.appendChild(path); return svg;
 }
-module.exports = { icon };
+function formatIcon(doc, format) {
+  if (!['PNG', 'PSD'].includes(format)) throw new Error('Unknown file format icon.');
+  const node = doc.createElement('div'); node.setAttribute('class', 'pt-format-icon'); node.setAttribute('aria-hidden', 'true');
+  const label = doc.createElement('span'); label.setAttribute('class', 'pt-format-tag'); label.textContent = format;
+  node.appendChild(icon(doc, 'file')); node.appendChild(label); return node;
+}
+module.exports = { icon, formatIcon };

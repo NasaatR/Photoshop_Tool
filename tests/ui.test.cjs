@@ -38,7 +38,7 @@ function mainFixture(fail = {}) {
   const uxp = { host: fail.uxpHost, versions: fail.uxpVersions, storage: { localFileSystem: { async getFileForSaving() { pickers++; if (fail.cancelSave) return null; return { async write(text) { if (fail.save) throw new Error('Disk full'); writes = text; } }; } } }, entrypoints: { setup(s) { assert.equal(setup, undefined); setup = s; } } };
   const navigator = { platform: 'Win32', clipboard: { async writeText(text) { clipboardWrites++; if (fail.copy) throw new Error('Clipboard busy'); clipboardText = text; }, readText() { throw new Error('Unexpected clipboard read'); } } };
   const entry = path.resolve(__dirname, '../plugin/main.js');
-  vm.runInNewContext(fs.readFileSync(entry, 'utf8'), { document: doc, navigator, localStorage: { getItem: k => stored.get(k) || null, setItem: (k, v) => stored.set(k, v) },
+  vm.runInNewContext(fs.readFileSync(entry, 'utf8'), { document: doc, navigator, localStorage: { getItem: k => stored.get(k) || null, setItem: (k, v) => { if (fail.selectionSave && k === 'photoshoptool.selection.v1') throw new Error('Preference storage failed'); stored.set(k, v); } },
     require: id => id === 'photoshop' ? ps : id === 'uxp' ? uxp : require(path.resolve(path.dirname(entry), id)) });
   return { root, stored, setup, alerts: () => alerts, pickers: () => pickers, clipboardWrites: () => clipboardWrites,
     report: () => JSON.parse(writes.slice(writes.indexOf('{'))), copied: () => JSON.parse(clipboardText.slice(clipboardText.indexOf('{'))) };
@@ -194,7 +194,7 @@ test('button order survives recreation/reload and keeps export settings and visi
 });
 test('compact Settings tabs keep independent drafts, roving keyboard navigation and synchronized label controls', async () => {
   const { view } = panel(); await view.elements.settings.fire('click');
-  assert.equal(view.elements['settings-view'].hidden, false); assert.equal(view.elements['settings-export'].hidden, true);
+  assert.equal(view.elements['settings-view'].hidden, true); assert.equal(view.elements['settings-export'].hidden, false);
   view.elements.compression.value = ''; await view.elements['tab-export'].fire('click');
   assert.equal(view.elements['settings-export'].hidden, false); assert.equal(view.elements['tab-export'].getAttribute('aria-selected'), 'true');
   await view.elements['tab-export'].fire('keydown', { key: 'ArrowRight' }); assert.equal(view.elements['settings-help'].hidden, false);
@@ -216,11 +216,11 @@ test('panel mount recovers content sizing after a zero-height create without reb
   f.setup.panels.relayPanel.destroy();
 });
 
-test('new controls keep stable Smart Area identity, compact Fill and independent Quick PSD options', async () => {
+test('new controls keep stable Smart Area identity, large Fill and independent Quick PSD options', async () => {
   const { view } = panel();
   assert.equal(view.elements['png.selection-smart'].getAttribute('aria-label'), 'Smart Area');
   assert.equal(registry.get('png.selection-smart').commandId, 'selectionSmart');
-  assert.equal(view.elements['layers.fill-current'].parentNode.getAttribute('data-density'), 'compact');
+  assert.equal(view.elements['layers.fill-current'].parentNode.getAttribute('data-density'), 'standard');
   assert.equal(view.elements['psd.quick-save'].hidden, false);
   assert.equal(registry.get('psd.quick-save').readOptions, undefined);
   view.elements.smartAreaBlurPercent.value = ''; await view.elements['tab-help'].fire('click'); await view.elements['tab-export'].fire('click');
@@ -233,7 +233,7 @@ test('Smart Area feather persists through recreation without changing legacy exp
   assert.equal(find(f.root, 'smartAreaBlurPercent').value, '0');
   find(f.root, 'smartAreaBlurPercent').value = '12.5'; await find(f.root, 'smartAreaBlurPercent').fire('change');
   assert.equal(JSON.parse(f.stored.get('photoshoptool.smartArea.v2')).blurPercent, 12.5);
-  assert.equal(JSON.parse(f.stored.get('pngrelay.settings.v1')).compression, 6);
+  assert.equal(f.stored.has('pngrelay.settings.v1'), false);
   const reloaded = mainFixture({ stored: Object.fromEntries(f.stored) }); reloaded.setup.panels.relayPanel.create(reloaded.root);
   assert.equal(find(reloaded.root, 'smartAreaBlurPercent').value, '12.5');
   find(reloaded.root, 'smartAreaBlurPercent').value = '-1'; await find(reloaded.root, 'png.selection-smart').fire('click');
@@ -242,4 +242,57 @@ test('Smart Area feather persists through recreation without changing legacy exp
   assert.match(reloaded.copied().lastOperation.error, /Open a document/);
   for (const key of ['layers.fill-current', 'psd.quick-save']) assert.equal(find(reloaded.root, key).hidden, false);
   f.setup.panels.relayPanel.destroy(); reloaded.setup.panels.relayPanel.destroy();
+});
+
+test('PNG/PSD format names remain inside distinct glyphs with captions hidden; area tools share the large tier', () => {
+  const { view } = panel();
+  for (const [id, format] of [['png.export-copy', 'PNG'], ['png.export-only', 'PNG'], ['psd.quick-save', 'PSD']]) {
+    const glyph = view.elements[id].children[0]; assert.equal(glyph.getAttribute('class'), 'pt-format-icon');
+    assert.equal(glyph.children[1].textContent, format); assert.equal(glyph.children[1].getAttribute('class'), 'pt-format-tag');
+  }
+  const area = view.elements['selection.expand'].parentNode;
+  assert.equal(area, view.elements['layers.fill-current'].parentNode); assert.equal(area.getAttribute('data-density'), 'standard');
+  assert.equal(view.elements['layers.curves'].parentNode.getAttribute('data-density'), 'compact');
+  assert.equal(view.elements['png.selection-smart'].parentNode.getAttribute('data-density'), 'standard');
+  assert.equal(view.elements.expandPx.value, '8'); assert.equal(view.elements.expandPx.getAttribute('max'), '500');
+  view.dispose();
+});
+test('action values autosave/reset independently of invalid PNG/Smart Area drafts and survive reload', async () => {
+  const f = mainFixture(); f.setup.panels.relayPanel.create(f.root);
+  assert.equal(find(f.root, 'settings-export').hidden, false);
+  find(f.root, 'compression').value = ''; find(f.root, 'smartAreaBlurPercent').value = '';
+  find(f.root, 'expandPx').value = '16'; await find(f.root, 'expandPx').fire('change');
+  assert.equal(JSON.parse(f.stored.get('photoshoptool.selection.v1')).expandPx, 16);
+  assert.equal(f.stored.has('pngrelay.settings.v1'), false); assert.equal(f.stored.has('photoshoptool.smartArea.v2'), false);
+  assert.equal(find(f.root, 'settingsStatus').textContent, 'Saved');
+  await find(f.root, 'reset-expandPx').fire('click'); assert.equal(find(f.root, 'expandPx').value, '8');
+  assert.equal(find(f.root, 'compression').value, ''); assert.equal(find(f.root, 'smartAreaBlurPercent').value, '');
+  await find(f.root, 'reset-smartAreaBlurPercent').fire('click'); assert.equal(JSON.parse(f.stored.get('photoshoptool.smartArea.v2')).blurPercent, 5);
+  assert.equal(find(f.root, 'compression').value, '');
+  await f.setup.commands.expandSelection(); await find(f.root, 'copyReport').fire('click'); assert.match(f.copied().lastOperation.error, /Open a document/);
+  find(f.root, 'expandPx').value = '32'; await find(f.root, 'expandPx').fire('change');
+  await find(f.root, 'tab-tools').fire('click');
+  const reloaded = mainFixture({ stored: Object.fromEntries(f.stored) }); reloaded.setup.panels.relayPanel.create(reloaded.root);
+  assert.equal(find(reloaded.root, 'expandPx').value, '32'); assert.equal(find(reloaded.root, 'settings-tools').hidden, false);
+  assert.equal(find(reloaded.root, 'tab-tools').getAttribute('aria-selected'), 'true');
+  f.setup.panels.relayPanel.destroy(); reloaded.setup.panels.relayPanel.destroy();
+});
+test('invalid Expand input keeps its draft, reports the error and leaves the saved value unchanged', async () => {
+  const f = mainFixture({ stored: { 'photoshoptool.selection.v1': JSON.stringify({ schema: 1, expandPx: 12 }) } }); f.setup.panels.relayPanel.create(f.root);
+  find(f.root, 'expandPx').value = '0'; await find(f.root, 'expandPx').fire('change');
+  assert.equal(JSON.parse(f.stored.get('photoshoptool.selection.v1')).expandPx, 12);
+  assert.equal(find(f.root, 'expandPx').value, '0'); assert.match(find(f.root, 'settingsStatus').textContent, /Not saved/);
+  await find(f.root, 'selection.expand').fire('click'); await find(f.root, 'copyReport').fire('click');
+  assert.match(f.copied().lastOperation.error, /1 to 500 px/);
+  f.setup.panels.relayPanel.destroy();
+});
+test('failed settings storage never claims Saved or clears the draft, and reset is disabled during a tool run', async () => {
+  const f = mainFixture({ selectionSave: true, stored: { 'photoshoptool.selection.v1': JSON.stringify({ schema: 1, expandPx: 8 }) } }); f.setup.panels.relayPanel.create(f.root);
+  find(f.root, 'expandPx').value = '24'; await find(f.root, 'expandPx').fire('change');
+  assert.equal(find(f.root, 'expandPx').value, '24'); assert.match(find(f.root, 'settingsStatus').textContent, /Not saved/);
+  assert.equal(JSON.parse(f.stored.get('photoshoptool.selection.v1')).expandPx, 8);
+  await find(f.root, 'copyReport').fire('click'); assert.ok(f.copied().diagnostics.events.some(event => event.scope === 'action preferences' && /storage failed/.test(event.message)));
+  const { view } = panel(); view.elements.expandPx.value = '24'; view.disable(true); await view.elements['reset-expandPx'].fire('click'); assert.equal(view.elements.expandPx.value, '24');
+  view.disable(false); await view.elements['reset-expandPx'].fire('click'); assert.equal(view.elements.expandPx.value, '8');
+  view.dispose(); f.setup.panels.relayPanel.destroy();
 });

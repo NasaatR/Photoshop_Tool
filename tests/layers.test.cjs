@@ -2,8 +2,9 @@
 const test = require('node:test'), assert = require('node:assert/strict');
 const { layerFixture } = require('./layer-fixture.cjs');
 const registry = require('../plugin/tools/index.js');
-test('seven layer tools have independent commands/options and distinct export labels', () => {
-  const tools = registry.list().filter(tool => tool.group === 'Layers'); assert.equal(tools.length, 7);
+test('six compact layer tools and large Fill have independent commands/options', () => {
+  const tools = registry.list().filter(tool => tool.group === 'Layers'); assert.equal(tools.length, 6);
+  assert.equal(registry.get('layers.fill-current').group, 'Area & transform');
   tools.forEach(tool => assert.equal(tool.readOptions, undefined));
   assert.notEqual(registry.get('png.selection-smart').label, registry.get('layers.smart-object').label);
 });

@@ -7,20 +7,22 @@ const { createHost } = require('./core/host.js');
 const { getEnvironment } = require('./core/environment.js');
 const { createRunner } = require('./core/runner.js');
 const { createDiagnostics, formatReport, copyReport } = require('./core/diagnostics.js');
-const { createPreferences, readExportDraft, readSmartAreaDraft } = require('./core/preferences.js');
+const { createPreferences, readExportDraft, readSmartAreaValue, readSelectionDraft } = require('./core/preferences.js');
 const { createOutputAccess } = require('./core/output-access.js');
 const { createPNGService } = require('./tools/png/service.js');
 const { createLayerService } = require('./tools/layers/service.js');
 const { createPSDService } = require('./tools/psd/service.js');
+const { createSelectionService } = require('./tools/selection/service.js');
 const { createPanel } = require('./ui/panel.js');
 const preferences = createPreferences(localStorage);
 const diagnostics = createDiagnostics();
 const environment = getEnvironment(ps, uxp);
 const host = createHost(ps, environment);
 const outputAccess = createOutputAccess(uxp.storage.localFileSystem);
-const services = { host, layers: createLayerService(host), psd: createPSDService(host, uxp.storage.localFileSystem, outputAccess), png: createPNGService(host, outputAccess, file => file.read({ format: uxp.storage.formats.binary })) };
+const services = { host, layers: createLayerService(host), selection: createSelectionService(host), psd: createPSDService(host, uxp.storage.localFileSystem, outputAccess), png: createPNGService(host, outputAccess, file => file.read({ format: uxp.storage.formats.binary })) };
 let order = preferences.order();
-let draft = { ...preferences.export(), smartAreaBlurPercent: preferences.smartArea().blurPercent }, appearance = preferences.refreshAppearance(preferences.appearance()), visibility = preferences.exposeCopyButton(preferences.visibility());
+let settingsTab = preferences.settingsTab();
+let draft = { ...preferences.export(), smartAreaBlurPercent: preferences.smartArea().blurPercent, expandPx: preferences.selection().expandPx }, appearance = preferences.refreshAppearance(preferences.appearance()), visibility = preferences.exposeCopyButton(preferences.visibility());
 let view = null, uiBusy = false, pending = preferences.problems().length ? [preferences.problems().join('\n'), 'error'] : ['Ready', 'ready'];
 const roots = new WeakSet(), lifecycle = { creates: 0, shows: 0, destroys: 0 };
 preferences.problems().forEach(message => diagnostics.event('warning', 'preferences', message));
@@ -79,11 +81,20 @@ function mount(root) {
   }
   if (!view) view = createPanel(root.ownerDocument || document, registry.list(), draft, appearance, visibility, {
     run: id => invoke(id, false), external, report: () => report('file'), copyReport: () => report('clipboard'), draft: capture,
-    changed() { try { capture(); const smart = readSmartAreaDraft(draft); preferences.saveExport(readExportDraft(draft)); preferences.saveSmartArea({ schema: 2, blurPercent: smart.maskBlurPercent }); } catch (e) { failure('export preferences', e); } },
+    changed(scope) {
+      try {
+        capture();
+        if (scope === 'selection') preferences.saveSelection({ schema: 1, ...readSelectionDraft(draft) });
+        else if (scope === 'smart') preferences.saveSmartArea(readSmartAreaValue(draft));
+        else preferences.saveExport(readExportDraft(draft));
+        return true;
+      } catch (e) { failure('action preferences', e); return false; }
+    },
     appearance(value) { appearance = value; try { preferences.saveAppearance(value); } catch (e) { failure('appearance preferences', e); } },
     order(value) { order = value; try { order = preferences.saveOrder(value); } catch (e) { failure('tool order preferences', e); } },
+    settingsTab(value) { settingsTab = value; try { preferences.saveSettingsTab(value); } catch (e) { failure('settings navigation', e); } },
     visibility(value) { visibility = value; try { preferences.saveVisibility(value); } catch (e) { failure('tool visibility preferences', e); } }
-  }, product.displayVersion, order);
+  }, product.displayVersion, order, settingsTab);
   if (view.root.parentNode !== root) root.appendChild(view.root);
   view.mount(root);
   view.disable(uiBusy); status(pending[0], pending[1]);

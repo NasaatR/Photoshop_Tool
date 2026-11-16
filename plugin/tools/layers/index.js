@@ -9,6 +9,6 @@ const definitions = [
   ['layers.fill-current', 'fillCurrentLayer', 'Fill Current Layer', 'Fill Layer', 'selection', 'Scale one selected layer proportionally to cover the full canvas and center it. Overflow stays outside the canvas. No rasterizing or canvas resize.', 'fill']
 ];
 module.exports = definitions.map(([id, commandId, title, label, icon, description, mode]) => ({
-  id, commandId, title, label, icon, description, hint: mode === 'mask' ? 'Black Mask / Invert' : mode === 'fill' ? title : label, group: 'Layers', compact: true, defaultVisible: true,
+  id, commandId, title, label, icon, description, hint: mode === 'mask' ? 'Black Mask / Invert' : mode === 'fill' ? title : label, group: mode === 'fill' ? 'Area & transform' : 'Layers', compact: mode !== 'fill', defaultVisible: true,
   execute: job => job.services.layers.run(mode, job)
 }));

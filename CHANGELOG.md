@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.6 (native 1.6.0)
+
+- Add Expand Selection using the native selection.expand API: default 8 px, configurable integer 1–500 px, one undo step per click, no layer/pixel/channel/file/clipboard mutation. Validate missing selections, Quick Mask and document changes; retain native errors and roll back partial/cancelled expansion.
+- Put Fill Current Layer and Expand Selection in a large Area & transform group, matching save/Smart Area sizing. Keep six layer controls compact and retain Fill IDs/visibility/order data. Add persistent PNG/PSD text inside save glyphs, also in icon-only mode.
+- Clarify settings as View, Buttons, Actions and Help. Open Actions initially and persist the last tab. Group action parameters with exact units and individual Reset controls. Save PNG, Smart Area and selection settings independently; preserve invalid drafts and show Saved only after storage acknowledgement.
+- Preserve the normal-flow scroll/resize fix, tooltips, existing workflows/identity/settings and old installers. Add native-selection contract and UI/persistence regressions; real Photoshop rendering/selection execution remains unverified here.
+
 ## 1.5 (native 1.5.0)
 
 - Smart Area now creates an ordinary pixel mask with blur baked once into its pixels. Explicitly select the mask channel by owner/document IDs, deselect the pixel selection for the filter and keep live Feather at 0. Later brush edits are not continuously softened, and no Smart Filter or image blur is added. Preserve exact selection, parent history rollback and existing masks.

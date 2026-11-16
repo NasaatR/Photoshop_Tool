@@ -1,11 +1,11 @@
 'use strict';
 const CSS = require('./styles.js');
-const { icon } = require('./icons.js');
+const { icon, formatIcon } = require('./icons.js');
 const { createTooltips } = require('./tooltips.js');
 const { createReorder } = require('./reorder.js');
 const { scrollKey, revealTop } = require('./scroll.js');
 const { createViewport } = require('./viewport.js');
-function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handlers, version, orderDraft = []) {
+function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handlers, version, orderDraft = [], settingsTabDraft = 'export') {
   const elements = {}, controls = {}, toolNodes = {}, choices = {};
   let appearance = { ...appearanceDraft }, visibility = { ...visibilityDraft };
   let arranger = null, activeSettingsTab = 'view';
@@ -58,7 +58,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     }
     const node = control(tool.id, null, event => { if (!arranger || !arranger.activate(tool.id, event)) return handlers.run(tool.id); }, 'pt-action' + (tool.emphasis === 'primary' ? ' pt-primary' : ''), tool.title, tool.description);
     node.setAttribute('data-hint-title', tool.hint || tool.label);
-    append(node, [icon(doc, tool.icon), make('span', tool.label, { class: 'pt-caption' })]); toolNodes[tool.id] = node;
+    append(node, [tool.format ? formatIcon(doc, tool.format) : icon(doc, tool.icon), make('span', tool.label, { class: 'pt-caption' })]); toolNodes[tool.id] = node;
     groups.get(group).actions.appendChild(node); groups.get(group).tools.push(tool);
   });
   const utilities = make('div', null, { class: 'pt-tools' });
@@ -90,7 +90,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   append(settingsHeader, [make('span', 'Settings', { class: 'pt-settings-title' }), control('settingsClose', 'Close', () => setOptions(false), 'pt-settings-close', 'Close settings')]);
   options.appendChild(settingsHeader);
   const tabList = make('div', null, { class: 'pt-settings-tabs', role: 'tablist', 'aria-label': 'Settings sections' }); options.appendChild(tabList);
-  for (const [id, label] of [['view', 'View'], ['tools', 'Tools'], ['export', 'Export'], ['help', 'Help']]) {
+  for (const [id, label] of [['view', 'View'], ['tools', 'Buttons'], ['export', 'Actions'], ['help', 'Help']]) {
     const tab = control('tab-' + id, label, () => selectSettingsTab(id), 'pt-tab', label + ' settings');
     tab.setAttribute('role', 'tab'); tab.setAttribute('aria-controls', 'settings-' + id); tabList.appendChild(tab); settingsTabs[id] = tab;
     tab.addEventListener('keydown', event => {
@@ -103,9 +103,11 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     const section = make('div', null, { id: 'settings-' + id, role: 'tabpanel', 'aria-labelledby': 'tab-' + id });
     settingsPanels[id] = section; options.appendChild(section);
   }
-  function selectSettingsTab(id) {
+  function selectSettingsTab(id, initial = false) {
+    if (!tabOrder.includes(id)) id = 'export';
     hints.dismiss(); activeSettingsTab = id;
     for (const name of tabOrder) { const selected = name === id; settingsPanels[name].hidden = !selected; settingsTabs[name].setAttribute('aria-selected', String(selected)); settingsTabs[name].setAttribute('tabindex', selected ? '0' : '-1'); }
+    if (!initial && handlers.settingsTab) handlers.settingsTab(id);
   }
   function heading(parent, text) { parent.appendChild(make('div', text, { class: 'pt-heading' })); }
   function checkbox(id, text, checked, change, title) {
@@ -114,19 +116,34 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     const label = append(make('label'), [input, make('span', text)]);
     hints.bind(label, () => ({ title: title || text }), input); return label;
   }
-  settingsPanels.export.appendChild(checkbox('overwrite', 'Replace existing PNG', draft.overwrite, handlers.changed));
-  settingsPanels.export.appendChild(checkbox('srgb', 'Convert to sRGB', draft.srgb, handlers.changed));
-  const compression = make('input', null, { id: 'compression', type: 'number', min: '0', max: '9', 'aria-label': 'PNG compression, zero to nine' }); compression.value = String(draft.compression);
-  hints.bind(compression, () => ({ title: 'PNG compression' }));
-  compression.addEventListener('input', handlers.draft); compression.addEventListener('change', handlers.changed);
-  settingsPanels.export.appendChild(append(make('label'), [make('span', 'Compression'), compression]));
-  settingsPanels.export.appendChild(make('p', 'Lossless · 0 fast / 9 small', { class: 'pt-hint' }));
+  const settingsStatus = make('p', 'Changes save automatically', { id: 'settingsStatus', class: 'pt-settings-status', role: 'status', 'aria-live': 'polite' });
+  options.appendChild(settingsStatus);
+  function persistSetting(scope) {
+    const saved = handlers.changed(scope);
+    if (saved === true) settingsStatus.textContent = 'Saved';
+    else if (saved === false) settingsStatus.textContent = 'Not saved · see error details';
+  }
+  function numberSetting(id, label, value, min, max, step, unit, reset, scope) {
+    const input = make('input', null, { id, type: 'number', min: String(min), max: String(max), step: String(step), 'aria-label': label + ' · ' + unit }); input.value = String(value);
+    hints.bind(input, () => ({ title: label + ' · ' + unit }));
+    input.addEventListener('input', () => { settingsStatus.textContent = 'Editing…'; handlers.draft(); });
+    input.addEventListener('change', () => persistSetting(scope));
+    const resetButton = control('reset-' + id, 'Reset', () => { input.value = String(reset); persistSetting(scope); }, 'pt-value-reset', 'Reset ' + label.toLowerCase() + ' to ' + reset + ' ' + unit);
+    const field = append(make('label', null, { class: 'pt-number-field' }), [make('span', label, { class: 'pt-field-label' }), append(make('span', null, { class: 'pt-number-value' }), [input, make('span', unit, { class: 'pt-unit' })])]);
+    settingsPanels.export.appendChild(append(make('div', null, { class: 'pt-value-row' }), [field, resetButton]));
+    return input;
+  }
+  heading(settingsPanels.export, 'Expand Selection');
+  const expandPx = numberSetting('expandPx', 'Grow by', draft.expandPx ?? 8, 1, 500, 1, 'px', 8, 'selection');
+  settingsPanels.export.appendChild(make('p', 'Each click grows the current selection. 1–500 px.', { class: 'pt-hint' }));
   heading(settingsPanels.export, 'Smart Area');
-  const smartAreaBlurPercent = make('input', null, { id: 'smartAreaBlurPercent', type: 'number', min: '0', max: '100', step: '0.1', 'aria-label': 'Smart Area edge blur, percent of the shorter side' }); smartAreaBlurPercent.value = String(draft.smartAreaBlurPercent ?? 5);
-  hints.bind(smartAreaBlurPercent, () => ({ title: 'Edge blur · %' }));
-  smartAreaBlurPercent.addEventListener('input', handlers.draft); smartAreaBlurPercent.addEventListener('change', handlers.changed);
-  settingsPanels.export.appendChild(append(make('label'), [make('span', 'Edge blur · %'), smartAreaBlurPercent]));
-  settingsPanels.export.appendChild(make('p', 'Of the area’s shorter side. Baked once; Feather stays 0. Native radius: 0.1–250 px; 0% disables blur.', { class: 'pt-hint' }));
+  const smartAreaBlurPercent = numberSetting('smartAreaBlurPercent', 'Edge blur', draft.smartAreaBlurPercent ?? 5, 0, 100, 0.1, '%', 5, 'smart');
+  settingsPanels.export.appendChild(make('p', 'Of the shorter side. Baked once; Feather = 0. Radius up to 250 px.', { class: 'pt-hint' }));
+  heading(settingsPanels.export, 'PNG export');
+  settingsPanels.export.appendChild(checkbox('overwrite', 'Replace existing PNG', draft.overwrite, () => persistSetting('png')));
+  settingsPanels.export.appendChild(checkbox('srgb', 'Convert copy to sRGB', draft.srgb, () => persistSetting('png')));
+  const compression = numberSetting('compression', 'Compression', draft.compression, 0, 9, 1, 'level', 6, 'png');
+  settingsPanels.export.appendChild(make('p', 'Lossless · 0 fastest / 9 smallest.', { class: 'pt-hint' }));
   for (const group of groups.values()) {
     heading(settingsPanels.tools, group.tools[0].group || 'Tools'); const list = make('div', null, { class: 'pt-tool-options' }); settingsPanels.tools.appendChild(list);
     group.tools.forEach(tool => list.appendChild(checkbox('visible-' + tool.id, tool.label, isVisible(tool), () => {
@@ -154,7 +171,8 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   [
     'Photoshop Tool ' + version + ' · Made by Nasaat',
     'Arrange buttons: use the arrow icon in the toolbar. Drag within a section, pick a button and its new position, or use arrow keys. Done/Escape ends arranging; Reset order keeps other settings.',
-    'Smart Area extracts the current pixel selection from one selected pixel layer. With no suitable layer, it stamps the visible composition. Without a pixel selection, it uses the full canvas. A normal pixel mask blends its edges in the parent PSD. Blur is baked once, so later brush strokes remain unaffected (Feather = 0). PNG/clipboard contain the unmasked contents. Set Edge blur % in Export settings.',
+    'Expand Selection grows an existing pixel selection by 8 px per click by default. Set Grow by in Actions settings. It edits the selection only, with one undo step; no selected layer or saved file is required.',
+    'Smart Area extracts the current pixel selection from one selected pixel layer. With no suitable layer, it stamps the visible composition. Without a pixel selection, it uses the full canvas. A normal pixel mask blends its edges in the parent PSD. Blur is baked once, so later brush strokes remain unaffected (Feather = 0). PNG/clipboard contain the unmasked contents. Set Edge blur % in Actions settings.',
     'Original layers stay editable. Temporary composite layers/channels are removed; the new Smart Object stays in the PSD and its contents remain open. PNG + Copy inside them updates the same export in this session.',
     'Copy copies all visible layers as one full-canvas image, ignoring the current selection. It saves no file and also works without a saved PSD.',
     'PNG + Copy saves the PNG and copies the same prepared composition. The optional PNG only tool keeps the clipboard unchanged.',
@@ -201,9 +219,9 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     for (const choice of Object.values(choices)) choice.node.setAttribute('aria-pressed', String(appearance[choice.field] === choice.value));
     if (!initial) handlers.appearance({ ...appearance });
   }
-  selectSettingsTab('view'); updateVisibility(); applyAppearance({}, true);
+  selectSettingsTab(settingsTabDraft, true); updateVisibility(); applyAppearance({}, true);
   return { root, elements, mount: viewport.mount, dismissHints() { hints.dismiss('panel-hidden'); arranger.cancel(); }, tooltipReport: hints.report, settingsTab: () => activeSettingsTab, scrollReport: () => ({ layout: viewport.report(), height: scroll.clientHeight, contentHeight: scroll.scrollHeight, top: scroll.scrollTop }), order: arranger.order, dispose() { viewport.destroy(); arranger.destroy(); hints.destroy(); }, appearance: () => ({ ...appearance }), visibility: () => ({ ...visibility }),
-    values: () => ({ overwrite: elements.overwrite.checked, srgb: elements.srgb.checked, compression: String(compression.value), smartAreaBlurPercent: String(smartAreaBlurPercent.value) }),
+    values: () => ({ overwrite: elements.overwrite.checked, srgb: elements.srgb.checked, compression: String(compression.value), smartAreaBlurPercent: String(smartAreaBlurPercent.value), expandPx: String(expandPx.value) }),
     reportStatus(text) { elements.reportStatus.textContent = text; elements.reportStatus.hidden = !text; },
     status(text, state, needsExternal) {
       if (text !== statusText || state !== statusState) {
@@ -220,7 +238,8 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
       if (value) { hints.dismiss(); if (arranger.active) arranger.setActive(false); }
       root.setAttribute('aria-busy', String(value));
       [...tools.map(t => t.id), 'external', 'report', 'copyReport', 'copyReportHelp', 'arrange', 'arrangeDone', 'arrangeReset', 'arrangeTools'].forEach(id => controls[id](value));
-      for (const id of ['overwrite', 'srgb', 'compression', 'smartAreaBlurPercent']) if (elements[id].disabled !== value) elements[id].disabled = value;
+      for (const id of ['overwrite', 'srgb', 'compression', 'smartAreaBlurPercent', 'expandPx']) if (elements[id].disabled !== value) elements[id].disabled = value;
+      for (const id of ['compression', 'smartAreaBlurPercent', 'expandPx']) controls['reset-' + id](value);
     }
   };
 }

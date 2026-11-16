@@ -2,7 +2,7 @@
   "manifestVersion": 5,
   "id": "com.nasaat.pngrelay",
   "name": "Photoshop Tool",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "main": "main.js",
   "host": {
     "app": "PS",
@@ -73,6 +73,13 @@
       "id": "quickPsd",
       "label": {
         "default": "Quick PSD"
+      }
+    },
+    {
+      "type": "command",
+      "id": "expandSelection",
+      "label": {
+        "default": "Expand Selection"
       }
     },
     {

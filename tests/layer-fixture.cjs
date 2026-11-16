@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const registry = require('../plugin/tools/index.js');
 const { createHost } = require('../plugin/core/host.js');
 const { createLayerService } = require('../plugin/tools/layers/service.js');
+const { createSelectionService } = require('../plugin/tools/selection/service.js');
 const { createRunner } = require('../plugin/core/runner.js');
 function layerFixture(fail = {}) {
   const C = { LayerKind: { NORMAL: 'pixel', SMARTOBJECT: 'smart', GROUP: 'group', TEXT: 'text' }, ChannelType: { COMPONENT: 'component' },
@@ -57,6 +58,12 @@ function layerFixture(fail = {}) {
     quickMaskMode: false, componentChannels: [originalChannel], activeChannels: [originalChannel], channels: [originalChannel],
     get layers() { return roots.map(wrapper); }, get activeLayers() { return active.map(wrapper); }, set activeLayers(layers) { active = layers.map(layer => layer.id); },
     selection: { bounds: { left: 2, top: 4, right: 100, bottom: 80 }, mask: [0, 32, 190, 255],
+      async expand(amount, atCanvas) {
+        events.push('expand'); assert.equal(atCanvas, false);
+        const b = this.bounds; this.bounds = { left: b.left - amount, top: b.top - amount, right: b.right + amount, bottom: b.bottom + amount }; this.mask = 'native-expanded-shape';
+        if (fail.expand) throw Object.assign(new Error('Injected expand failure'), { number: -42 });
+        if (fail.cancelExpand) ctx.isCancelled = true;
+      },
       async save(name) { events.push('saveSelection'); const saved = { name, kind: 'alpha', bounds: this.bounds, mask: this.mask, async remove() { events.push('removeChannel'); doc.channels = doc.channels.filter(channel => channel !== saved); } }; doc.channels.push(saved); doc.activeChannels = [saved]; },
       async deselect() { events.push('deselect'); this.bounds = null; this.mask = null; },
       async load(channel) { events.push('loadSelection'); if (fail.restore) throw new Error('Injected selection restore failure'); this.bounds = channel.bounds; this.mask = channel.mask; }
@@ -115,10 +122,10 @@ function layerFixture(fail = {}) {
     } }
   };
   const host = createHost(ps, { photoshop: '28.0.1' });
-  const services = { host, layers: createLayerService(host) };
+  const services = { host, layers: createLayerService(host), selection: createSelectionService(host) };
   const runner = createRunner(registry, job => ({ ...job, services }), (...s) => statuses.push(s), 'test');
   return { doc, app, C, ctx, events, descriptors, commits, statuses, original, other, add,
     get data() { return data; }, get active() { return active; }, get modalOptions() { return modalOptions; }, select(ids) { active = ids; },
-    run: id => runner.run(id, {}), layer: wrapper };
+    run: (id, options = {}) => runner.run(id, options), layer: wrapper };
 }
 module.exports = { layerFixture };

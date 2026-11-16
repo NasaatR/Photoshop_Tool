@@ -32,6 +32,9 @@ module.exports = `
 #photoshoptool .pt-action {flex:1;min-width:44px;height:var(--size);margin-right:6px;margin-bottom:6px;border-radius:var(--radius);background-color:var(--raised);}
 #photoshoptool .pt-primary {background-color:var(--primary);border-color:var(--primary-border);}
 #photoshoptool .pt-icon {display:block;width:22px;height:22px;fill:currentColor;pointer-events:none;flex-shrink:0;}
+#photoshoptool .pt-format-icon {position:relative;display:block;width:32px;height:30px;flex-shrink:0;pointer-events:none;}
+#photoshoptool .pt-format-icon .pt-icon {width:20px;height:20px;margin:0 auto;}
+#photoshoptool .pt-format-tag {position:absolute;left:0;bottom:0;width:32px;height:11px;display:block;text-align:center;font-size:10px;line-height:11px;font-weight:700;letter-spacing:0;color:var(--fg);}
 #photoshoptool .pt-tools {display:flex;align-items:center;flex-shrink:0;}
 #photoshoptool .pt-small {width:26px;height:24px;margin-left:3px;border-color:transparent;}
 #photoshoptool .pt-small .pt-icon {width:16px;height:16px;}
@@ -84,6 +87,13 @@ module.exports = `
 #photoshoptool .pt-setting-row {min-width:0;margin:0 0 7px;}
 #photoshoptool .pt-setting-name {font-size:10px;color:var(--muted);margin-bottom:3px;}
 #photoshoptool .pt-setting-row .pt-choice-group {margin:0;}
+#photoshoptool .pt-value-row {display:flex;align-items:center;min-width:0;margin:2px 0;}
+#photoshoptool .pt-value-row .pt-number-field {flex:1;min-width:0;flex-wrap:wrap;}
+#photoshoptool .pt-number-value {display:flex;align-items:center;flex-shrink:0;margin-left:auto;}
+#photoshoptool .pt-number-value input[type="number"] {width:54px;margin-left:4px;}
+#photoshoptool .pt-unit {font-size:10px;color:var(--muted);margin:0 4px;}
+#photoshoptool .pt-value-reset {min-height:27px;min-width:34px;margin-left:3px;padding:2px 3px;font-size:10px;}
+#photoshoptool .pt-settings-status {font-size:10px;line-height:14px;color:var(--muted);margin:6px 0 0;}
 #photoshoptool .pt-tool-options {display:flex;flex-wrap:wrap;min-width:0;}
 #photoshoptool .pt-tool-options label {flex:1 0 110px;min-width:0;max-width:100%;}
 #photoshoptool .pt-report-actions {display:flex;flex-wrap:wrap;min-width:0;}
