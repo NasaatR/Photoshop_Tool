@@ -2,7 +2,7 @@
   "manifestVersion": 5,
   "id": "com.nasaat.pngrelay",
   "name": "Photoshop Tool",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "main": "main.js",
   "host": {
     "app": "PS",
@@ -58,7 +58,7 @@
       "type": "command",
       "id": "selectionSmart",
       "label": {
-        "default": "Selection to Smart Object + PNG + Copy"
+        "default": "Smart Area"
       }
     },
     {
@@ -66,6 +66,13 @@
       "id": "exportPngOnly",
       "label": {
         "default": "Export PNG Only"
+      }
+    },
+    {
+      "type": "command",
+      "id": "quickPsd",
+      "label": {
+        "default": "Quick PSD"
       }
     },
     {
@@ -108,6 +115,13 @@
       "id": "addSolidColor",
       "label": {
         "default": "Add Solid Color Fill"
+      }
+    },
+    {
+      "type": "command",
+      "id": "fillCurrentLayer",
+      "label": {
+        "default": "Fill Current Layer"
       }
     }
   ]

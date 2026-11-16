@@ -5,9 +5,10 @@ const definitions = [
   ['layers.black-mask', 'addBlackMask', 'Black Mask / Invert', 'Mask', 'mask', 'Add a black pixel mask, or invert the existing mask on the selected layer.', 'mask'],
   ['layers.curves', 'addClippedCurves', 'Curves · Clipped to Layer', 'Curves', 'curves', 'Add a neutral Curves adjustment immediately above one selected layer, clipped to it.', 'curves'],
   ['layers.hue-saturation', 'addClippedHueSaturation', 'Hue/Saturation · Clipped to Layer', 'Hue / Sat', 'hue', 'Add a neutral Hue/Saturation adjustment immediately above one selected layer, clipped to it.', 'hue'],
-  ['layers.solid-color', 'addSolidColor', 'Add Solid Color Fill', 'Solid Color', 'color', 'Choose a color and add an editable Solid Color fill layer. It is not clipped.', 'color']
+  ['layers.solid-color', 'addSolidColor', 'Add Solid Color Fill', 'Solid Color', 'color', 'Choose a color and add an editable Solid Color fill layer. It is not clipped.', 'color'],
+  ['layers.fill-current', 'fillCurrentLayer', 'Fill Current Layer', 'Fill Layer', 'selection', 'Scale one selected layer proportionally to cover the full canvas and center it. Overflow stays outside the canvas. No rasterizing or canvas resize.', 'fill']
 ];
 module.exports = definitions.map(([id, commandId, title, label, icon, description, mode]) => ({
-  id, commandId, title, label, icon, description, hint: mode === 'mask' ? 'Black Mask / Invert' : label, group: 'Layers', compact: true, defaultVisible: true,
+  id, commandId, title, label, icon, description, hint: mode === 'mask' ? 'Black Mask / Invert' : mode === 'fill' ? title : label, group: 'Layers', compact: true, defaultVisible: true,
   execute: job => job.services.layers.run(mode, job)
 }));

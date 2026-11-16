@@ -1,6 +1,7 @@
 'use strict';
 const { withHistory } = require('../../core/host.js');
 const { selectionName } = require('./logic.js');
+const { addSoftMask } = require('./soft-mask.js');
 const { layersByID, requireLayer, step, selectLayer, removeOwnedLayer, onlyNewPixel, stampVisible, savedChannel } = require('../../core/layers.js');
 function selectionPlan(doc, C) {
   if (doc.activeChannels.length !== doc.componentChannels.length || doc.activeChannels.some(c => c.kind !== C.ChannelType.COMPONENT)) throw new Error('Select the RGB/Grayscale composite channel, not a mask or one channel.');
@@ -11,16 +12,16 @@ function selectionPlan(doc, C) {
 }
 async function createSelectionSmartObject(host, ctx, source, plan, root, job) {
   const { app, C } = host;
-  let content, targetName, smartID;
-  await withHistory(ctx, source.id, 'Photoshop Tool: Selection to Smart Object', async () => {
+  let content, targetName, smartID, mask;
+  await withHistory(ctx, source.id, 'Photoshop Tool: Smart Area', async () => {
     let stampedID = null, channelName = null;
     const originals = new Set(layersByID(source, C).keys());
-    if (plan.composite) {
-      if (plan.bounds) await step(job, 'save-selection', 'Preserving the pixel selection…', async () => {
+    if (plan.bounds) await step(job, 'save-selection', 'Preserving the pixel selection…', async () => {
         const name = 'PT selection ' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
         if (source.channels.some(channel => channel.name === name)) throw new Error('Temporary selection name already exists.');
-        await source.selection.save(name); host.cancel(ctx); savedChannel(host, source, name); channelName = name;
+        await source.selection.save(name); host.cancel(ctx); savedChannel(host, source, name); channelName = name; source.activeChannels = source.componentChannels;
       });
+    if (plan.composite) {
       await step(job, 'prepare-composite', 'Preparing the visible composition…', async () => {
         host.cancel(ctx); await source.selection.deselect(); host.cancel(ctx); source.activeChannels = source.componentChannels;
       });
@@ -51,6 +52,7 @@ async function createSelectionSmartObject(host, ctx, source, plan, root, job) {
       job.record.smartLayerIDs.smart = smartID;
       if (plan.composite) requireLayer(host, source, smartID).name = smartName;
     });
+    mask = await addSoftMask(host, ctx, source, smartID, channelName, job.options.maskFeather ?? 24, job);
     await step(job, 'restore-selection', 'Restoring the original selection…', async () => {
       host.cancel(ctx);
       if (channelName) { await source.selection.load(savedChannel(host, source, channelName)); host.cancel(ctx); await savedChannel(host, source, channelName).remove(); }
@@ -67,6 +69,7 @@ async function createSelectionSmartObject(host, ctx, source, plan, root, job) {
     });
   }, job.warn);
   job.record.smartLayerID = smartID;
+  job.record.smartAreaMask = mask;
   job.record.smartInput = plan.composite ? 'visible-composite' : 'selected-pixel-layer';
   job.record.smartScope = plan.bounds ? 'pixel-selection' : 'full-canvas';
   return { content, targetName };

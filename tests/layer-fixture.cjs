@@ -6,7 +6,7 @@ const { createLayerService } = require('../plugin/tools/layers/service.js');
 const { createRunner } = require('../plugin/core/runner.js');
 function layerFixture(fail = {}) {
   const C = { LayerKind: { NORMAL: 'pixel', SMARTOBJECT: 'smart', GROUP: 'group', TEXT: 'text' }, ChannelType: { COMPONENT: 'component' },
-    ElementPlacement: { PLACEBEFORE: 'before' }, DocumentMode: { RGB: 'RGB', GRAYSCALE: 'GRAY' }, BitsPerChannelType: { EIGHT: 8, SIXTEEN: 16 } };
+    ElementPlacement: { PLACEBEFORE: 'before' }, AnchorPosition: { MIDDLECENTER: 'middle' }, DocumentMode: { RGB: 'RGB', GRAYSCALE: 'GRAY' }, BitsPerChannelType: { EIGHT: 8, SIXTEEN: 16 } };
   let serial = 10, data = new Map(), roots = [], active = [], snapshot, modalOptions;
   const events = [], descriptors = [], statuses = [], commits = [], originalChannel = { name: 'RGB', kind: C.ChannelType.COMPONENT };
   function siblings(parent) { return parent == null ? roots : data.get(parent).children; }
@@ -17,7 +17,17 @@ function layerFixture(fail = {}) {
         const value = item(id);
         if (key === 'layers') return value.children.map(wrapper);
         if (key === 'parent') return value.parent == null ? null : wrapper(value.parent);
-        if (key === 'boundsNoEffects') return value.empty ? { left: 0, top: 0, right: 0, bottom: 0 } : { left: 0, top: 0, right: doc.width, bottom: doc.height };
+        if (key === 'boundsNoEffects') return value.empty ? { left: 0, top: 0, right: 0, bottom: 0 } : value.bounds || { left: 0, top: 0, right: doc.width, bottom: doc.height };
+        if (key === 'scale') return async (x, y, anchor) => {
+          events.push('scale'); assert.equal(x, y); assert.equal(anchor, C.AnchorPosition.MIDDLECENTER); assert.equal(doc.selection.bounds, null); assert.equal(doc.activeChannels[0], originalChannel);
+          if (fail.scale) throw new Error('Injected scale failure');
+          const b = wrapper(id).boundsNoEffects, cx = (b.left + b.right) / 2, cy = (b.top + b.bottom) / 2, w = (b.right - b.left) * x / 100, h = (b.bottom - b.top) * y / 100;
+          value.bounds = { left: cx - w / 2, top: cy - h / 2, right: cx + w / 2, bottom: cy + h / 2 };
+        };
+        if (key === 'translate') return async (x, y) => {
+          events.push('translate'); if (fail.translate) throw new Error('Injected translation failure');
+          const b = wrapper(id).boundsNoEffects; value.bounds = { left: b.left + x, right: b.right + x, top: b.top + y, bottom: b.bottom + y };
+        };
         if (key === 'delete') return async () => { events.push('delete'); remove(id); };
         if (key === 'move') return async (target, placement) => {
           assert.equal(placement, C.ElementPlacement.PLACEBEFORE); events.push('move');

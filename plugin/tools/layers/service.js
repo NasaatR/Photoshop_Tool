@@ -1,5 +1,6 @@
 'use strict';
 const { withHistory } = require('../../core/host.js');
+const { validateFill, fillCurrentLayer } = require('./fill.js');
 const { layersByID, requireLayer, directlyAbove, selectLayer, stampVisible, savedChannel, step } = require('../../core/layers.js');
 function validate(doc) {
   if (!doc) throw new Error('Open a document first.');
@@ -115,7 +116,7 @@ function createLayerService(host) {
     job.record.host = host.version;
     validate(app.activeDocument);
     const sourceID = app.activeDocument.id;
-    const names = { smart: 'Smart Object', camera: 'Smart Object + Camera Raw', mask: 'Black Mask', curves: 'Clipped Curves', hue: 'Clipped Hue/Saturation', color: 'Solid Color' };
+    const names = { smart: 'Smart Object', camera: 'Smart Object + Camera Raw', mask: 'Black Mask', curves: 'Clipped Curves', hue: 'Clipped Hue/Saturation', color: 'Solid Color', fill: 'Fill Current Layer' };
     if (!names[mode]) throw new Error('Unknown layer tool.');
     job.progress('Waiting for Photoshop…');
     await host.modal('Photoshop Tool: ' + names[mode], async ctx => {
@@ -128,7 +129,8 @@ function createLayerService(host) {
         job.record.targetResolution = 'native-layer-ids';
         job.record.source = { id: sourceID, mode: doc.mode, depth: doc.bitsPerChannel, activeLayerIDs: selected, selection: !!doc.selection.bounds };
         if (mode === 'camera') host.validate(doc, false);
-        const target = ['mask', 'curves', 'hue'].includes(mode) ? oneLayer(selected) : null;
+        const target = ['mask', 'curves', 'hue', 'fill'].includes(mode) ? oneLayer(selected) : null;
+        if (mode === 'fill') validateFill(host, doc, target);
         if (mode === 'mask' && requireLayer(host, doc, target).isBackgroundLayer) throw new Error('Unlock the Background layer before adding a black mask.');
         if (mode === 'mask' && requireLayer(host, doc, target).allLocked) throw new Error('Unlock the selected layer before adding a black mask.');
         let maskExists = false;
@@ -144,8 +146,9 @@ function createLayerService(host) {
         let effect;
         await withHistory(ctx, sourceID, 'Photoshop Tool: ' + names[mode], async () => {
           await step(job, 'target-image', 'Targeting the layer image, not its mask…', () => prepareTargets(host, ctx, doc, selected));
-          const selectionName = ['smart', 'camera', 'mask'].includes(mode) ? await preserveSelection(host, ctx, doc, job) : null;
-          if (mode === 'smart' || mode === 'camera') {
+          const selectionName = ['smart', 'camera', 'mask', 'fill'].includes(mode) ? await preserveSelection(host, ctx, doc, job) : null;
+          if (mode === 'fill') effect = await fillCurrentLayer(host, ctx, doc, target, job);
+          else if (mode === 'smart' || mode === 'camera') {
             effect = await convert(host, ctx, doc, job, selected);
             await selectLayer(host, doc, effect.id);
             if (mode === 'camera') await step(job, 'camera-raw', 'Adjust Camera Raw, then choose OK…', async () => {
@@ -200,7 +203,8 @@ function createLayerService(host) {
         if (mode === 'mask') { job.record.blackMaskAdded = !maskExists; job.record.maskInverted = maskExists; job.record.maskAction = maskExists ? 'invert' : 'create'; }
         if (mode === 'curves' || mode === 'hue') { job.record.adjustmentCreated = true; job.record.clippedToLayerID = target; }
         if (mode === 'color') job.record.fillCreated = true;
-        job.record.message = mode === 'smart' && !effect.created ? 'Already a Smart Object' : mode === 'camera' ? 'Camera Raw Smart Filter applied' : mode === 'mask' ? maskExists ? 'Layer mask inverted' : 'Black mask added · paint with white to reveal' : names[mode] + (mode === 'smart' ? ' created' : ' added');
+        if (mode === 'fill') { job.record.layerFilled = true; job.record.fillTransform = { mode: 'cover', scalePercent: effect.percent, before: effect.before }; }
+        job.record.message = mode === 'fill' ? 'Layer filled to canvas · proportions preserved' : mode === 'smart' && !effect.created ? 'Already a Smart Object' : mode === 'camera' ? 'Camera Raw Smart Filter applied' : mode === 'mask' ? maskExists ? 'Layer mask inverted' : 'Black mask added · paint with white to reveal' : names[mode] + (mode === 'smart' ? ' created' : ' added');
       } catch (error) {
         if (ctx.isCancelled || error && error.cancelled === true || isCancellation(error)) {
           if (!error || typeof error !== 'object') error = new Error('Cancelled.');

@@ -7,18 +7,20 @@ const { createHost } = require('./core/host.js');
 const { getEnvironment } = require('./core/environment.js');
 const { createRunner } = require('./core/runner.js');
 const { createDiagnostics, formatReport, copyReport } = require('./core/diagnostics.js');
-const { createPreferences, readExportDraft } = require('./core/preferences.js');
+const { createPreferences, readExportDraft, readSmartAreaDraft } = require('./core/preferences.js');
 const { createOutputAccess } = require('./core/output-access.js');
 const { createPNGService } = require('./tools/png/service.js');
 const { createLayerService } = require('./tools/layers/service.js');
+const { createPSDService } = require('./tools/psd/service.js');
 const { createPanel } = require('./ui/panel.js');
 const preferences = createPreferences(localStorage);
 const diagnostics = createDiagnostics();
 const environment = getEnvironment(ps, uxp);
 const host = createHost(ps, environment);
-const services = { host, layers: createLayerService(host), png: createPNGService(host, createOutputAccess(uxp.storage.localFileSystem), file => file.read({ format: uxp.storage.formats.binary })) };
+const outputAccess = createOutputAccess(uxp.storage.localFileSystem);
+const services = { host, layers: createLayerService(host), psd: createPSDService(host, uxp.storage.localFileSystem, outputAccess), png: createPNGService(host, outputAccess, file => file.read({ format: uxp.storage.formats.binary })) };
 let order = preferences.order();
-let draft = preferences.export(), appearance = preferences.refreshAppearance(preferences.appearance()), visibility = preferences.exposeCopyButton(preferences.visibility());
+let draft = { ...preferences.export(), smartAreaFeather: preferences.smartArea().feather }, appearance = preferences.refreshAppearance(preferences.appearance()), visibility = preferences.exposeCopyButton(preferences.visibility());
 let view = null, uiBusy = false, pending = preferences.problems().length ? [preferences.problems().join('\n'), 'error'] : ['Ready', 'ready'];
 const roots = new WeakSet(), lifecycle = { creates: 0, shows: 0, destroys: 0 };
 preferences.problems().forEach(message => diagnostics.event('warning', 'preferences', message));
@@ -77,7 +79,7 @@ function mount(root) {
   }
   if (!view) view = createPanel(root.ownerDocument || document, registry.list(), draft, appearance, visibility, {
     run: id => invoke(id, false), external, report: () => report('file'), copyReport: () => report('clipboard'), draft: capture,
-    changed() { try { draft = preferences.saveExport(options()); } catch (e) { failure('export preferences', e); } },
+    changed() { try { capture(); const smart = readSmartAreaDraft(draft); preferences.saveExport(readExportDraft(draft)); preferences.saveSmartArea({ schema: 1, feather: smart.maskFeather }); } catch (e) { failure('export preferences', e); } },
     appearance(value) { appearance = value; try { preferences.saveAppearance(value); } catch (e) { failure('appearance preferences', e); } },
     order(value) { order = value; try { order = preferences.saveOrder(value); } catch (e) { failure('tool order preferences', e); } },
     visibility(value) { visibility = value; try { preferences.saveVisibility(value); } catch (e) { failure('tool visibility preferences', e); } }

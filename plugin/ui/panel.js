@@ -121,6 +121,12 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   compression.addEventListener('input', handlers.draft); compression.addEventListener('change', handlers.changed);
   settingsPanels.export.appendChild(append(make('label'), [make('span', 'Compression'), compression]));
   settingsPanels.export.appendChild(make('p', 'Lossless · 0 fast / 9 small', { class: 'pt-hint' }));
+  heading(settingsPanels.export, 'Smart Area');
+  const smartAreaFeather = make('input', null, { id: 'smartAreaFeather', type: 'number', min: '0', max: '1000', step: '0.1', 'aria-label': 'Smart Area mask feather in pixels' }); smartAreaFeather.value = String(draft.smartAreaFeather ?? 24);
+  hints.bind(smartAreaFeather, () => ({ title: 'Mask feather · px' }));
+  smartAreaFeather.addEventListener('input', handlers.draft); smartAreaFeather.addEventListener('change', handlers.changed);
+  settingsPanels.export.appendChild(append(make('label'), [make('span', 'Mask feather · px'), smartAreaFeather]));
+  settingsPanels.export.appendChild(make('p', 'Editable mask on the parent object. Small areas use a smaller radius; 0 keeps a hard mask.', { class: 'pt-hint' }));
   for (const group of groups.values()) {
     heading(settingsPanels.tools, group.tools[0].group || 'Tools'); const list = make('div', null, { class: 'pt-tool-options' }); settingsPanels.tools.appendChild(list);
     group.tools.forEach(tool => list.appendChild(checkbox('visible-' + tool.id, tool.label, isVisible(tool), () => {
@@ -148,7 +154,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   [
     'Photoshop Tool ' + version + ' · Made by Nasaat',
     'Arrange buttons: use the arrow icon in the toolbar. Drag within a section, pick a button and its new position, or use arrow keys. Done/Escape ends arranging; Reset order keeps other settings.',
-    'Extract + PNG extracts the current pixel selection from one selected pixel layer. With no suitable layer, it first stamps the visible composition. Without a pixel selection, it uses the full canvas.',
+    'Smart Area extracts the current pixel selection from one selected pixel layer. With no suitable layer, it stamps the visible composition. Without a pixel selection, it uses the full canvas. A soft editable mask blends its edges in the parent PSD; the PNG/clipboard contain the unmasked Smart Object contents. Set mask feather in Export settings.',
     'Original layers stay editable. Temporary composite layers/channels are removed; the new Smart Object stays in the PSD and its contents remain open. PNG + Copy inside them updates the same export in this session.',
     'Copy copies all visible layers as one full-canvas image, ignoring the current selection. It saves no file and also works without a saved PSD.',
     'PNG + Copy saves the PNG and copies the same prepared composition. The optional PNG only tool keeps the clipboard unchanged.',
@@ -157,6 +163,8 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     'Black Mask / Invert adds a full black mask if none exists, or inverts the entire existing pixel mask. The original pixel selection is restored; source pixels, mask density and feather are preserved.',
     'Curves and Hue / Sat add neutral adjustments clipped above one selected layer or group. Use Photoshop Properties to adjust them. Existing clipping chains follow Photoshop semantics.',
     'Solid Color opens the native color picker and adds an editable fill. Layer tools work in unsaved documents without export-folder access.',
+    'Fill Current Layer scales one unlocked layer proportionally to cover the full document canvas and centers it. Overflow stays outside the canvas. The original pixel selection is restored. Unlink linked layers first.',
+    'Quick PSD saves an image as a layered PSD beside its original, then continues editing in that PSD. Name conflicts get a numbered filename. Existing PSD/PSB projects save in place; documents without a local location ask once for a PSD destination.',
     'Full resolution · RGB / Grayscale · 8 / 16 bit. The source PSD is not automatically saved.',
     'PNG files go beside the project automatically. Native image paste depends on the receiving application.',
     'Copy report replaces the clipboard with diagnostic text. Reports contain filenames, the last eight operations and recent session events. Nothing is sent automatically.'
@@ -195,7 +203,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   }
   selectSettingsTab('view'); updateVisibility(); applyAppearance({}, true);
   return { root, elements, mount: viewport.mount, dismissHints() { hints.dismiss('panel-hidden'); arranger.cancel(); }, tooltipReport: hints.report, settingsTab: () => activeSettingsTab, scrollReport: () => ({ layout: viewport.report(), height: scroll.clientHeight, contentHeight: scroll.scrollHeight, top: scroll.scrollTop }), order: arranger.order, dispose() { viewport.destroy(); arranger.destroy(); hints.destroy(); }, appearance: () => ({ ...appearance }), visibility: () => ({ ...visibility }),
-    values: () => ({ overwrite: elements.overwrite.checked, srgb: elements.srgb.checked, compression: String(compression.value) }),
+    values: () => ({ overwrite: elements.overwrite.checked, srgb: elements.srgb.checked, compression: String(compression.value), smartAreaFeather: String(smartAreaFeather.value) }),
     reportStatus(text) { elements.reportStatus.textContent = text; elements.reportStatus.hidden = !text; },
     status(text, state, needsExternal) {
       if (text !== statusText || state !== statusState) {
@@ -212,7 +220,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
       if (value) { hints.dismiss(); if (arranger.active) arranger.setActive(false); }
       root.setAttribute('aria-busy', String(value));
       [...tools.map(t => t.id), 'external', 'report', 'copyReport', 'copyReportHelp', 'arrange', 'arrangeDone', 'arrangeReset', 'arrangeTools'].forEach(id => controls[id](value));
-      for (const id of ['overwrite', 'srgb', 'compression']) if (elements[id].disabled !== value) elements[id].disabled = value;
+      for (const id of ['overwrite', 'srgb', 'compression', 'smartAreaFeather']) if (elements[id].disabled !== value) elements[id].disabled = value;
     }
   };
 }

@@ -2,7 +2,7 @@
 function location(path) {
   const p = String(path || '').replace(/\\/g, '/');
   if (!/^(?:[A-Za-z]:\/|\/\/)/.test(p) || !/\.(psd|psb)$/i.test(p)) throw new Error('Save a local PSD or PSB first. Cloud documents need a local copy.');
-  if (/\.psb$/i.test(p) && /(?:^|\/)(?:temp|temporary items)\//i.test(p)) throw new Error('This temporary PSB has no remembered parent PSD. Run Selection to Smart Object from the parent.');
+  if (/\.psb$/i.test(p) && /(?:^|\/)(?:temp|temporary items)\//i.test(p)) throw new Error('This temporary PSB has no remembered parent PSD. Run Smart Area from the parent.');
   const split = p.lastIndexOf('/'); return { folder: p.slice(0, split), base: p.slice(split + 1).replace(/\.(psd|psb)$/i, '') };
 }
 function selectionName(base, layer, id) {

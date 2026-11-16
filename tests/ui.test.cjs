@@ -73,7 +73,7 @@ test('design refresh enables rounded labeled tools once and retains theme, densi
 });
 test('rounded toolbar exposes distinct image/report actions, grid layout and busy state', async () => {
   const { view } = panel(); assert.equal(view.root.attributes['data-tool-layout'], 'grid');
-  assert.equal(view.elements['png.export-copy'].parentNode.attributes['data-layout'], 'row');
+  assert.equal(view.elements['png.export-copy'].parentNode.attributes['data-layout'], 'grid');
   assert.equal(view.elements['layers.curves'].parentNode.attributes['data-layout'], 'grid');
   view.elements['visible-png.export-only'].checked = true; await view.elements['visible-png.export-only'].fire('change');
   assert.equal(view.root.attributes['data-tool-layout'], 'grid'); view.disable(true); assert.equal(view.root.attributes['aria-busy'], 'true');
@@ -169,7 +169,7 @@ test('compact layer toolbar preserves icon-only appearance and tool visibility t
   assert.equal(find(f.root, 'png.export-copy').parentNode.getAttribute('data-density'), 'standard');
   assert.deepEqual(JSON.parse(f.stored.get('pngrelay.appearance.v1')), appearance);
   await find(f.root, 'report').fire('click'); const report = f.report();
-  assert.equal(report.version, '1.3.0'); assert.equal(report.displayVersion, '1.3');
+  assert.equal(report.version, require('../plugin/product.json').version); assert.equal(report.displayVersion, require('../plugin/product.json').displayVersion);
   f.setup.panels.relayPanel.hide(); f.setup.panels.relayPanel.destroy();
 });
 test('Arrange never runs a Photoshop tool and updates the actual toolbar before saving', async () => {
@@ -214,4 +214,32 @@ test('panel mount recovers content sizing after a zero-height create without reb
   await find(f.root, 'report').fire('click'); const layout = f.report().interface.scroll.layout;
   assert.equal(layout.mode, 'measured-normal-flow'); assert.equal(layout.hostHeight, 174); assert.equal(layout.height, 139);
   f.setup.panels.relayPanel.destroy();
+});
+
+test('new controls keep stable Smart Area identity, compact Fill and independent Quick PSD options', async () => {
+  const { view } = panel();
+  assert.equal(view.elements['png.selection-smart'].getAttribute('aria-label'), 'Smart Area');
+  assert.equal(registry.get('png.selection-smart').commandId, 'selectionSmart');
+  assert.equal(view.elements['layers.fill-current'].parentNode.getAttribute('data-density'), 'compact');
+  assert.equal(view.elements['psd.quick-save'].hidden, false);
+  assert.equal(registry.get('psd.quick-save').readOptions, undefined);
+  view.elements.smartAreaFeather.value = ''; await view.elements['tab-help'].fire('click'); await view.elements['tab-export'].fire('click');
+  assert.equal(view.values().smartAreaFeather, '');
+  view.disable(true); assert.equal(view.elements.smartAreaFeather.disabled, true); view.disable(false);
+  assert.equal(view.values().smartAreaFeather, ''); view.dispose();
+});
+test('Smart Area feather persists through recreation without changing legacy export values or hiding new tools', async () => {
+  const f = mainFixture({ stored: { 'photoshoptool.smartArea.v1': JSON.stringify({ schema: 1, feather: 0 }) } }); f.setup.panels.relayPanel.create(f.root);
+  assert.equal(find(f.root, 'smartAreaFeather').value, '0');
+  find(f.root, 'smartAreaFeather').value = '12.5'; await find(f.root, 'smartAreaFeather').fire('change');
+  assert.equal(JSON.parse(f.stored.get('photoshoptool.smartArea.v1')).feather, 12.5);
+  assert.equal(JSON.parse(f.stored.get('pngrelay.settings.v1')).compression, 6);
+  const reloaded = mainFixture({ stored: Object.fromEntries(f.stored) }); reloaded.setup.panels.relayPanel.create(reloaded.root);
+  assert.equal(find(reloaded.root, 'smartAreaFeather').value, '12.5');
+  find(reloaded.root, 'smartAreaFeather').value = '-1'; await find(reloaded.root, 'png.selection-smart').fire('click');
+  await find(reloaded.root, 'copyReport').fire('click'); assert.match(reloaded.copied().lastOperation.error, /feather/);
+  await find(reloaded.root, 'png.export-copy').fire('click'); await find(reloaded.root, 'copyReport').fire('click');
+  assert.match(reloaded.copied().lastOperation.error, /Open a document/);
+  for (const key of ['layers.fill-current', 'psd.quick-save']) assert.equal(find(reloaded.root, key).hidden, false);
+  f.setup.panels.relayPanel.destroy(); reloaded.setup.panels.relayPanel.destroy();
 });

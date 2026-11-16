@@ -4,7 +4,7 @@ const { fixture } = require('./fixture.cjs');
 test('Smart Object preserves the direct selected-pixel-layer path', async () => {
   const f = fixture(); const r = await f.run('png.selection-smart');
   assert.equal(r.status, 'complete'); assert.equal(r.smartInput, 'selected-pixel-layer'); assert.equal(r.smartScope, 'pixel-selection');
-  assert.ok(!f.events.includes('mergeVisible')); assert.ok(!f.events.includes('saveSelection')); assert.equal(f.source.layers.length, 2);
+  assert.ok(!f.events.includes('mergeVisible')); assert.ok(f.events.includes('saveSelection')); assert.equal(f.source.layers.length, 2);
 });
 test('non-pixel, multiple or no active layers stamp visible pixels and preserve the exact selection', async () => {
   for (const scenario of ['text', 'group', 'smart', 'none', 'multiple']) {

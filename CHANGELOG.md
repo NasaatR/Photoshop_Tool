@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.4 (native 1.4.0)
+
+- Rename Extract + PNG to Smart Area while preserving its tool/command IDs, visibility and order. Add an editable feathered pixel mask to the parent Smart Object, contract inward for a useful edge fade, preserve exact selection and roll back mask/extraction failures together. PNG/clipboard still contain the unmasked contents. Add independent 0–1000 px feather preferences with 24 px default and tiny/thin-region handling.
+- Add Fill Current Layer: proportional canvas cover and centering, mask-focused owner targeting, exact selection restoration and one history step. Reject empty/ambiguous/locked/linked targets before transforming; keep the canvas and unrelated layers intact.
+- Add Quick PSD: native layered/profile-preserving save beside a local image, continue in the PSD, avoid occupied/open output names, and save existing PSD/PSB in place. Unsaved/cloud input gets a PSD save picker. Retain primary native failures and uncertain document-backed output; never replace the original image.
+- Keep the 1.3 normal-flow viewport, resize/scroll, compact controls, settings, stable installation identity and old installers. Regression tests cover masks, transforms, PSD collisions/recovery, tool-specific settings and UI persistence. Native Photoshop execution/visual/reopened-output checks remain unverified here.
+
 ## 1.3 (native 1.3.0)
 
 - Restore the main content/footer to normal flow after the 1.2 absolute-inset/auto-height viewport was reported to render blank except for the footer.

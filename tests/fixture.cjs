@@ -50,6 +50,7 @@ function fixture(fail = {}) {
       componentChannels: [channel], activeChannels: [channel], channels: [channel], layers: [], activeLayers: [],
       selection: { bounds: { left: 5, top: 7, right: 105, bottom: 87 }, mask: [0, 64, 128, 255],
         async deselect() { hit('deselect'); this.bounds = null; this.mask = null; }, async selectAll() { hit('selectAll'); },
+        async contract(amount, atCanvas) { hit('contract'); assert.equal(atCanvas, true); assert.ok(amount >= 1 && amount <= 500); if (fail.thinSelection) this.bounds = null; else { const b = this.bounds; this.bounds = { left: b.left + amount, top: b.top + amount, right: b.right - amount, bottom: b.bottom - amount }; this.mask = 'contracted'; } },
         async selectRectangle(bounds, mode) { hit('selectRectangle'); assert.equal(mode, C.SelectionType.REPLACE); this.bounds = { ...bounds }; this.mask = 'canvas'; },
         async save(name) { hit('saveSelection'); const saved = { name, kind: 'alpha', bounds: this.bounds, mask: this.mask, async remove() { hit('deleteChannel'); doc.channels = doc.channels.filter(channel => channel !== saved); } }; doc.channels.push(saved); },
         async load(channel) { hit('loadSelection'); this.bounds = channel.bounds; this.mask = channel.mask; }
@@ -80,7 +81,8 @@ function fixture(fail = {}) {
   } }, action: { async batchPlay(commands) {
     const c = commands[0]; hit(c._obj);
     if (fail.actionError === c._obj) return [{ _obj: 'error', result: -1, message: 'Action unavailable' }];
-    if (c._obj === 'make') { assert.equal(c._target[0]._ref, 'layer'); await source.createLayer(C.LayerKind.NORMAL, { name: c.using.name }); }
+    if (c._obj === 'make' && c.new) { assert.equal(c.using._value, 'revealSelection'); assert.ok(source.selection.bounds); assert.equal(source.activeLayers[0].kind, C.LayerKind.SMARTOBJECT); hit('makeMask'); source.activeLayers[0].mask = { bounds: { ...source.selection.bounds }, pixels: source.selection.mask }; source.activeChannels = [{ kind: 'mask' }]; }
+    else if (c._obj === 'make') { assert.equal(c._target[0]._ref, 'layer'); await source.createLayer(C.LayerKind.NORMAL, { name: c.using.name }); }
     if (c._obj === 'mergeVisible') {
       assert.equal(c.duplicate, true); assert.equal(source.selection.bounds, null);
       const composition = allLayers(source.layers).filter(layer => layer.visible !== false && !layer.empty).map(layer => layer.id); stamps.push(composition);
@@ -106,6 +108,6 @@ function fixture(fail = {}) {
   const host = createHost(ps), services = { png: createPNGService(host, createOutputAccess(fs), file => file.read()) };
   const runner = createRunner(registry, context => ({ ...context, services }), (...s) => statuses.push(s), '0.3.3');
   return { app, source, C, files, Entry, folder, events, ctx, statuses, copied, stamps, runner, services, host, makeLayer: (name, kind) => makeLayer(source, name, kind), folderCalls: () => folderCalls,
-    run: (id = 'png.export-copy', options) => runner.run(id, normalizeExport(options)) };
+    run: (id = 'png.export-copy', options) => runner.run(id, { ...normalizeExport(options), ...(options && options.maskFeather != null ? { maskFeather: options.maskFeather } : {}) }) };
 }
 module.exports = { fixture };

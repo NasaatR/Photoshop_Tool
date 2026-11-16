@@ -6,6 +6,16 @@ const TOOLS_KEY = 'photoshoptool.tools.v1';
 const COPY_BUTTON_KEY = 'photoshoptool.copyButton.v1';
 const DESIGN_KEY = 'photoshoptool.designRefresh.v1';
 const ORDER_KEY = 'photoshoptool.order.v1';
+const SMART_AREA_KEY = 'photoshoptool.smartArea.v1';
+function normalizeSmartArea(raw) {
+  const r = raw && raw.schema === 1 ? raw : {};
+  return { schema: 1, feather: typeof r.feather === 'number' && Number.isFinite(r.feather) && r.feather >= 0 && r.feather <= 1000 ? r.feather : 24 };
+}
+function readSmartAreaDraft(draft) {
+  const raw = draft.smartAreaFeather == null ? '24' : String(draft.smartAreaFeather), feather = Number(raw);
+  if (!raw.trim() || !Number.isFinite(feather) || feather < 0 || feather > 1000) throw new Error('Smart Area feather must be from 0 to 1000 px.');
+  return { ...readExportDraft(draft), maskFeather: feather };
+}
 function normalizeExport(raw) {
   const r = raw && raw.schema === 1 ? raw : {};
   return { schema: 1, overwrite: r.overwrite !== false, srgb: r.srgb === true,
@@ -27,6 +37,8 @@ function createPreferences(storage) {
   return {
     problems: () => problems.slice(),
     export: () => normalizeExport(read(EXPORT_KEY)), appearance: () => normalizeAppearance(read(APPEARANCE_KEY)),
+    smartArea: () => normalizeSmartArea(read(SMART_AREA_KEY)),
+    saveSmartArea(value) { const next = normalizeSmartArea(value); storage.setItem(SMART_AREA_KEY, JSON.stringify(next)); return next; },
     order() { const raw = read(ORDER_KEY); return raw && raw.schema === 1 ? normalizeOrder(raw.ids) : []; },
     saveOrder(value) { const next = normalizeOrder(value); storage.setItem(ORDER_KEY, JSON.stringify({ schema: 1, ids: next })); return next; },
     saveExport(value) { const next = normalizeExport(value); storage.setItem(EXPORT_KEY, JSON.stringify(next)); return next; },
@@ -49,4 +61,4 @@ function createPreferences(storage) {
     saveVisibility(visible) { const next = {}; for (const [id, value] of Object.entries(visible)) if (typeof value === 'boolean') next[id] = value; storage.setItem(TOOLS_KEY, JSON.stringify({ schema: 1, visible: next })); return next; }
   };
 }
-module.exports = { createPreferences, normalizeExport, normalizeAppearance, readExportDraft };
+module.exports = { createPreferences, normalizeExport, normalizeAppearance, readExportDraft, normalizeSmartArea, readSmartAreaDraft };

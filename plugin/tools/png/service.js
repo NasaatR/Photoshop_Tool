@@ -85,7 +85,7 @@ function createPNGService(host, resolveFolder, readBinary) {
     const root = mode === 'copy' ? null : roots.get(sourceID) || location(source.path);
     const folder = root ? await resolveFolder(root, job.progress) : null;
     job.progress('Waiting for Photoshop…');
-    await host.modal('Photoshop Tool: ' + (selection ? 'Selection to Smart Object' : mode === 'copy' ? 'Copy Image' : 'Export PNG'), async ctx => {
+    await host.modal('Photoshop Tool: ' + (selection ? 'Smart Area' : mode === 'copy' ? 'Copy Image' : 'Export PNG'), async ctx => {
       if (!app.activeDocument || app.activeDocument.id !== sourceID) throw new Error('The active document changed. Run the tool again on the intended document.');
       host.validate(source, copy);
       let finishOn = sourceID;
