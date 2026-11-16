@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8 (native 1.8.0)
+
+- Move settings to one native resizable UXP dialog with independent scrolling, theme, name-only hints and a Close/status footer. Retain controls, drafts, last tab and main panel scroll; handle Close, Escape, titlebar dismissal, reopen, stale completion, errors and teardown. Block plugin document commands while settings are open.
+- Show custom focus outlines only for keyboard navigation; clear pointer focus frames, including the settings gear. Preserve keyboard return focus without a lingering frame after native titlebar dismissal.
+- Give Expand Selection the official Lucide outward-arrow icon, with applicable notices packaged in LICENSE-LUCIDE.txt. Promote Camera Raw and Mask / Invert to standard-size Area & transform buttons; keep four other Layers commands compact and preserve IDs, visibility and saved ordering.
+- Preserve workflows, installation identity, preferences and previously issued installers. Add dialog/focus/tooltip-scope/command-guard regression coverage. Native Photoshop window rendering, resize and focus remain unverified here.
+
 ## 1.7 (native 1.7.0)
 
 - Use a four-column main button flow with wrapping minimum hit/caption widths. Reduce default icon button height to 40 px (Roomy 48), preserving compact Layers, PNG/PSD glyphs and the normal-flow scroll viewport.

@@ -11,6 +11,9 @@ class Element {
   removeChild(c) { this.children.splice(this.children.indexOf(c), 1); c.parentNode = null; }
   addEventListener(k, fn) { (this.listeners[k] ||= []).push(fn); }
   async fire(k, event = {}) { event.preventDefault ||= () => {}; for (const fn of this.listeners[k] || []) await fn(event); }
+  uxpShowModal(options) { if (this.tagName !== 'dialog') throw new Error('Not a dialog'); if (this.open) throw new Error('Dialog already open'); this.dialogOptions = options; this.open = true; this.dialogOpens = (this.dialogOpens || 0) + 1; return new Promise((resolve, reject) => { this.resolveDialog = resolve; this.rejectDialog = reject; }); }
+  close(reason) { this.open = false; if (this.resolveDialog) this.resolveDialog(reason); }
+  focus() { this.focused = true; for (const listener of this.listeners.focus || []) listener({ target: this }); }
   set innerHTML(_) { throw new Error('HTML injection'); }
 }
 const makeDocument = () => {

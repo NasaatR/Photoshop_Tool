@@ -2,7 +2,7 @@
   "manifestVersion": 5,
   "id": "com.nasaat.pngrelay",
   "name": "Photoshop Tool",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "main": "main.js",
   "host": {
     "app": "PS",
@@ -84,6 +84,13 @@
     },
     {
       "type": "command",
+      "id": "fillCurrentLayer",
+      "label": {
+        "default": "Fill Current Layer"
+      }
+    },
+    {
+      "type": "command",
       "id": "convertSmartObject",
       "label": {
         "default": "Convert to Smart Object"
@@ -122,13 +129,6 @@
       "id": "addSolidColor",
       "label": {
         "default": "Add Solid Color Fill"
-      }
-    },
-    {
-      "type": "command",
-      "id": "fillCurrentLayer",
-      "label": {
-        "default": "Fill Current Layer"
       }
     }
   ]

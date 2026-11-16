@@ -26,7 +26,7 @@ module.exports = `
 #photoshoptool .pt-section-title {font-size:10px;color:var(--muted);line-height:15px;margin:2px 0 5px 2px;}
 #photoshoptool .pt-control {display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid var(--border);border-radius:var(--small-radius);background-color:transparent;color:var(--fg);padding:0;margin:0;cursor:pointer;outline:none;}
 #photoshoptool .pt-control:hover {background-color:var(--hover);}
-#photoshoptool .pt-control:focus {border-color:var(--fg);outline:1px solid var(--fg);outline-offset:1px;}
+#photoshoptool .pt-control[data-keyboard-focus="true"]:focus {border-color:var(--fg);outline:1px solid var(--fg);outline-offset:1px;}
 #photoshoptool .pt-control:active {background-color:var(--primary);}
 #photoshoptool .pt-control[aria-disabled="true"] {opacity:.45;cursor:default;}
 #photoshoptool .pt-action {flex:1;min-width:44px;height:var(--size);margin-right:6px;margin-bottom:6px;border-radius:var(--radius);background-color:var(--raised);}
@@ -57,7 +57,7 @@ module.exports = `
 #photoshoptool .pt-tooltip-title {font-weight:500;line-height:14px;}
 #photoshoptool .pt-status-row {display:flex;align-items:center;min-width:0;min-height:30px;margin-top:1px;padding:0 3px 0 7px;border:1px solid var(--border);border-radius:var(--small-radius);background-color:var(--status-bg);}
 #photoshoptool .pt-status {flex:1;min-width:0;min-height:28px;display:flex;align-items:center;cursor:pointer;}
-#photoshoptool .pt-status:focus {outline:1px solid var(--fg);outline-offset:1px;border-radius:var(--small-radius);}
+#photoshoptool .pt-status[data-keyboard-focus="true"]:focus {outline:1px solid var(--fg);outline-offset:1px;border-radius:var(--small-radius);}
 #photoshoptool .pt-dot {width:5px;height:5px;margin-right:7px;border-radius:3px;flex-shrink:0;background-color:var(--muted);}
 #photoshoptool .pt-status-row[data-state="success"] .pt-dot {background-color:var(--success);}
 #photoshoptool .pt-status-row[data-state="error"] .pt-dot {background-color:var(--error);}
@@ -94,6 +94,8 @@ module.exports = `
 #photoshoptool .pt-unit {font-size:10px;color:var(--muted);margin:0 4px;}
 #photoshoptool .pt-value-reset {min-height:27px;min-width:34px;margin-left:3px;padding:2px 3px;font-size:10px;}
 #photoshoptool .pt-settings-status {font-size:10px;line-height:14px;color:var(--muted);margin:6px 0 0;}
+#photoshoptool .pt-settings-footer {display:flex;align-items:center;justify-content:space-between;flex-shrink:0;min-height:32px;padding-top:5px;border-top:1px solid var(--border);}
+#photoshoptool .pt-settings-footer .pt-settings-status {flex:1;min-width:0;margin:0 7px 0 0;word-wrap:break-word;}
 #photoshoptool .pt-slider-setting {min-width:0;margin:2px 0 5px;}
 #photoshoptool .pt-slider {display:block;width:100%;min-width:0;min-height:24px;margin:0;color:var(--fg);}
 #photoshoptool .pt-tool-options {display:flex;flex-wrap:wrap;min-width:0;}

@@ -13,10 +13,10 @@ function placeTooltip(panel, anchor, requestedWidth, requestedHeight) {
   const top = Math.max(margin, below ? bottom : anchor.top - panel.top - height - gap);
   return { left, top, width, height, maxHeight };
 }
-function createTooltips(doc, root, timers = { set: (fn, delay) => setTimeout(fn, delay), clear: id => clearTimeout(id) }) {
+function createTooltips(doc, root, timers = { set: (fn, delay) => setTimeout(fn, delay), clear: id => clearTimeout(id) }, id = 'pt-tooltip') {
   const tip = doc.createElement('div'), title = doc.createElement('div');
-  tip.setAttribute('id', 'pt-tooltip'); tip.setAttribute('role', 'tooltip'); tip.setAttribute('class', 'pt-tooltip'); tip.hidden = true;
-  title.setAttribute('id', 'pt-tooltip-title'); title.setAttribute('class', 'pt-tooltip-title');
+  tip.setAttribute('id', id); tip.setAttribute('role', 'tooltip'); tip.setAttribute('class', 'pt-tooltip'); tip.hidden = true;
+  title.setAttribute('id', id + '-title'); title.setAttribute('class', 'pt-tooltip-title');
   tip.appendChild(title); root.appendChild(tip);
   let current = null, pending = null, closing = null, overTip = false, disposed = false, enabled = true, pointer = null, layoutKey = null, geometry = null;
   const stats = { shown: 0, dismissed: 0, lastDismiss: null };
@@ -55,7 +55,7 @@ function createTooltips(doc, root, timers = { set: (fn, delay) => setTimeout(fn,
     const size = tip.getBoundingClientRect();
     const position = placeTooltip(bounds, anchor, Math.min(maximumWidth, size.width > 0 ? size.width : maximumWidth), size.height > 0 ? size.height : Math.min(28, available));
     tip.style.width = position.width + 'px'; tip.style.left = position.left + 'px'; tip.style.top = position.top + 'px';
-    target.focusNode.setAttribute('aria-describedby', 'pt-tooltip');
+    target.focusNode.setAttribute('aria-describedby', id);
     geometry = { anchor, root: bounds, tip: { left: bounds.left + position.left, top: bounds.top + position.top, width: position.width, height: position.height } };
     stats.shown++;
   }

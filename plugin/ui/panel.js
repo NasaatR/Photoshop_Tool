@@ -3,14 +3,16 @@ const CSS = require('./styles.js');
 const { icon, formatIcon } = require('./icons.js');
 const { createTooltips } = require('./tooltips.js');
 const { createReorder } = require('./reorder.js');
-const { scrollKey, revealTop } = require('./scroll.js');
+const { scrollKey } = require('./scroll.js');
 const { createViewport } = require('./viewport.js');
 const { bindSlider } = require('./sliders.js');
+const { createFocus } = require('./focus.js');
+const { createSettingsWindow } = require('./settings-window.js');
 function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handlers, version, orderDraft = [], settingsTabDraft = 'export') {
   const elements = {}, controls = {}, toolNodes = {}, choices = {};
   const numberControls = {}, sizeControls = [];
   let appearance = { ...appearanceDraft }, visibility = { ...visibilityDraft };
-  let arranger = null, activeSettingsTab = 'view';
+  let arranger = null, settingsWindow = null, activeSettingsTab = 'view';
   let statusText = null, statusState = null, externalState = null;
   function make(tag, text, attrs) {
     const el = doc.createElement(tag);
@@ -20,10 +22,12 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     return el;
   }
   const append = (parent, nodes) => { nodes.forEach(node => parent.appendChild(node)); return parent; };
+  const focus = createFocus(doc);
   function control(id, label, callback, className, title, description) {
     let disabled = false, spaceDown = false;
     const el = make('div', null, { id, role: 'button', tabindex: '0', 'aria-label': title || label, 'aria-disabled': 'false' });
     el.className = 'pt-control ' + (className || '');
+    focus.bind(el);
     if (description) el.setAttribute('data-hint', description);
     hints.bind(el, () => ({ title: el.getAttribute('data-hint-title') || el.getAttribute('aria-label'), body: el.getAttribute('data-hint') }));
     if (label) el.appendChild(make('span', label));
@@ -44,7 +48,18 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   }
   const root = make('div', null, { id: 'photoshoptool' }); root.appendChild(make('style', CSS));
   const sizing = make('style', '', { id: 'sizing' }); root.appendChild(sizing);
-  const hints = createTooltips(doc, root, handlers.tooltipTimers);
+  const dialog = make('dialog', null, { id: 'settingsDialog' }); Object.assign(dialog.style, { padding: '0', margin: '0', border: '0' });
+  const settingsRoot = make('div', null, { id: 'photoshoptool-settings' }); dialog.appendChild(settingsRoot); root.appendChild(dialog);
+  settingsRoot.appendChild(make('style', CSS.replace(/#photoshoptool/g, '#photoshoptool-settings') + '\n#photoshoptool-settings #options {margin:0;padding:0;border:0;background-color:transparent;}'));
+  const mainHints = createTooltips(doc, root, handlers.tooltipTimers), settingsHints = createTooltips(doc, settingsRoot, handlers.tooltipTimers, 'settings-tooltip');
+  let bindingHints = mainHints;
+  const hints = { bind: (...args) => bindingHints.bind(...args),
+    dismiss(reason) { const a = mainHints.dismiss(reason), b = settingsHints.dismiss(reason); return a || b; },
+    relayout() { mainHints.relayout(); settingsHints.relayout(); },
+    enable(value) { mainHints.enable(value); settingsHints.enable(value); },
+    report: () => ({ ...mainHints.report(), settings: settingsHints.report() }),
+    destroy() { mainHints.destroy(); settingsHints.destroy(); }
+  };
   const scroll = make('div', null, { id: 'scroll', class: 'pt-scroll', tabindex: '0', role: 'region', 'aria-label': 'Photoshop Tool content' }); root.appendChild(scroll);
   scroll.addEventListener('scroll', hints.relayout);
   scroll.addEventListener('keydown', event => scrollKey(scroll, event));
@@ -74,8 +89,8 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   append(arrangeActions, [control('arrangeDone', 'Done', () => arranger.setActive(false), 'pt-choice', 'Finish arranging buttons'), control('arrangeReset', 'Reset order', () => arranger.reset(), 'pt-choice', 'Restore default button order', 'Only the order changes. Visibility, appearance and export options are kept.')]);
   append(arrangeBar, [arrangeHint, arrangeActions]);
   const options = make('div', null, { id: 'options' }); options.hidden = true;
-  const gear = control('settings', null, event => setOptions(options.hidden, !!(event && event.key)), 'pt-small', 'Settings', 'Export settings, tool visibility, appearance, usage and diagnostic reports.'); gear.appendChild(icon(doc, 'settings'));
-  gear.setAttribute('aria-expanded', 'false'); gear.setAttribute('aria-controls', 'options');
+  const gear = control('settings', null, () => setOptions(!settingsWindow.isOpen()), 'pt-small', 'Settings', 'Open settings in a separate window.'); gear.appendChild(icon(doc, 'settings'));
+  gear.setAttribute('aria-expanded', 'false'); gear.setAttribute('aria-controls', 'settingsDialog'); gear.setAttribute('aria-haspopup', 'dialog');
   append(utilities, [arrange, labelToggle, gear]); toolbar.appendChild(utilities); append(scroll, [toolbar, arrangeBar, ...sections]);
   const status = control('status', null, () => {
     details.hidden = !details.hidden; status.setAttribute('aria-expanded', String(!details.hidden));
@@ -87,11 +102,12 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   append(statusRow, [status, copyLog]);
   append(scroll, [statusRow, details, make('p', '', { id: 'reportStatus', class: 'pt-hint', role: 'status', 'aria-live': 'polite' })]); elements.reportStatus.hidden = true;
   const external = control('external', 'Enable external paste', handlers.external, 'pt-text', 'Enable Photoshop Export Clipboard', 'Allow images copied in Photoshop to be pasted into other applications. Changes the Photoshop Export Clipboard preference.'); external.hidden = true;
-  append(scroll, [external, options]);
+  scroll.appendChild(external);
+  const settingsScroll = make('div', null, { id: 'settingsScroll', class: 'pt-scroll', tabindex: '0', role: 'region', 'aria-label': 'Settings content' }); settingsRoot.appendChild(settingsScroll); settingsScroll.appendChild(options);
+  settingsScroll.addEventListener('scroll', hints.relayout); settingsScroll.addEventListener('keydown', event => scrollKey(settingsScroll, event));
+  bindingHints = settingsHints;
   const settingsPanels = {}, settingsTabs = {}, tabOrder = ['view', 'tools', 'export', 'help'];
-  const settingsHeader = make('div', null, { class: 'pt-settings-header' });
-  append(settingsHeader, [make('span', 'Settings', { class: 'pt-settings-title' }), control('settingsClose', 'Close', () => setOptions(false), 'pt-settings-close', 'Close settings')]);
-  options.appendChild(settingsHeader);
+  const closeSettings = control('settingsClose', 'Close', () => setOptions(false), 'pt-settings-close', 'Close settings');
   const tabList = make('div', null, { class: 'pt-settings-tabs', role: 'tablist', 'aria-label': 'Settings sections' }); options.appendChild(tabList);
   for (const [id, label] of [['view', 'View'], ['tools', 'Buttons'], ['export', 'Actions'], ['help', 'Help']]) {
     const tab = control('tab-' + id, label, () => selectSettingsTab(id), 'pt-tab', label + ' settings');
@@ -109,6 +125,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   function selectSettingsTab(id, initial = false) {
     if (!tabOrder.includes(id)) id = 'export';
     hints.dismiss(); activeSettingsTab = id;
+    settingsScroll.scrollTop = 0;
     for (const name of tabOrder) { const selected = name === id; settingsPanels[name].hidden = !selected; settingsTabs[name].setAttribute('aria-selected', String(selected)); settingsTabs[name].setAttribute('tabindex', selected ? '0' : '-1'); }
     if (!initial && handlers.settingsTab) handlers.settingsTab(id);
   }
@@ -120,7 +137,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     hints.bind(label, () => ({ title: title || text }), input); return label;
   }
   const settingsStatus = make('p', 'Changes save automatically', { id: 'settingsStatus', class: 'pt-settings-status', role: 'status', 'aria-live': 'polite' });
-  options.appendChild(settingsStatus);
+  const settingsFooter = append(make('div', null, { class: 'pt-settings-footer' }), [settingsStatus, closeSettings]); settingsRoot.appendChild(settingsFooter);
   function persistSetting(scope) {
     const saved = handlers.changed(scope);
     if (saved === true) settingsStatus.textContent = 'Saved';
@@ -207,13 +224,25 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   ].forEach(text => help.appendChild(make('p', text, { class: 'pt-hint' })));
   const footer = append(make('div', null, { class: 'pt-footer' }), [make('span', 'Made by Nasaat'), make('span', 'v' + version, { class: 'pt-version' })]); root.appendChild(footer);
   const viewport = createViewport(doc, scroll, footer);
+  const settingsViewport = createViewport(doc, settingsScroll, settingsFooter);
+  settingsWindow = createSettingsWindow(dialog, options, gear, settingsViewport, {
+    opening() { hints.dismiss(); arranger.setActive(false); focus.clear(); },
+    closed(reason) { hints.dismiss(); focus.clear(); if (reason === 'close' && focus.keyboard() && gear.focus) gear.focus(); },
+    error(error) { settingsStatus.textContent = 'Could not open settings: ' + String(error && error.message || error); if (handlers.error) handlers.error('settings window', error); }
+  });
   arranger = createReorder(doc, tools, toolNodes, orderDraft, {
     apply(ordered) { for (const tool of ordered) groups.get(tool.group || 'Tools').actions.appendChild(toolNodes[tool.id]); },
     save(ids) { if (handlers.order) handlers.order(ids); },
     state(active, picked) { root.setAttribute('data-arranging', String(active)); arrangeBar.hidden = !active; arrange.setAttribute('aria-pressed', String(active)); hints.enable(!active); const text = picked ? 'Choose a new position in this section, drag, or use arrow keys.' : 'Drag, or pick a button and its new position. Arrow keys move it.'; if (arrangeHint.textContent !== text) arrangeHint.textContent = text; }
   });
-  root.addEventListener('keydown', e => { if (e.key === 'Escape' && arranger.escape()) { e.preventDefault(); return; } if (e.key === 'Escape' && hints.dismiss()) { e.preventDefault(); return; } if (e.key === 'Escape' && !options.hidden) { e.preventDefault(); setOptions(false); if (gear.focus) gear.focus(); } });
-  function setOptions(open, focusTab = false) { hints.dismiss(); options.hidden = !open; gear.setAttribute('aria-expanded', String(open)); if (open) { revealTop(scroll, options); if (focusTab && settingsTabs[activeSettingsTab].focus) settingsTabs[activeSettingsTab].focus(); } else { scroll.scrollTop = 0; if (gear.focus) gear.focus(); } }
+  function escape(e) {
+    if (e.key !== 'Escape') return;
+    focus.key(e);
+    if (hints.dismiss() || arranger.escape()) { e.preventDefault(); if (e.stopPropagation) e.stopPropagation(); return; }
+    if (settingsWindow.isOpen()) { e.preventDefault(); if (e.stopPropagation) e.stopPropagation(); setOptions(false); }
+  }
+  root.addEventListener('keydown', escape); dialog.addEventListener('keydown', escape);
+  function setOptions(open) { hints.dismiss(); if (open) settingsWindow.open(); else settingsWindow.close(); }
   function isVisible(tool) { return typeof visibility[tool.id] === 'boolean' ? visibility[tool.id] : tool.defaultVisible !== false; }
   function updateVisibility() {
     hints.dismiss(); if (arranger) arranger.cancel();
@@ -239,6 +268,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     }
     const className = 'pt-root pt-' + appearance.theme + (appearance.labels ? ' pt-labels' : '') + (appearance.size === 'roomy' ? ' pt-roomy' : '') + (appearance.corners === 'soft' ? ' pt-soft' : '');
     if (root.className !== className) root.className = className;
+    if (settingsRoot.className !== className) settingsRoot.className = className;
     elements['appearance-labels'].checked = appearance.labels;
     labelToggle.setAttribute('aria-pressed', String(appearance.labels));
     labelToggle.setAttribute('aria-label', appearance.labels ? 'Hide button labels' : 'Show button labels');
@@ -246,9 +276,9 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     if (!initial && save) return handlers.appearance({ ...appearance });
   }
   selectSettingsTab(settingsTabDraft, true); updateVisibility(); applyAppearance({}, true);
-  return { root, elements, mount: viewport.mount, dismissHints() { hints.dismiss('panel-hidden'); arranger.cancel(); }, tooltipReport: hints.report, settingsTab: () => activeSettingsTab, scrollReport: () => ({ layout: viewport.report(), height: scroll.clientHeight, contentHeight: scroll.scrollHeight, top: scroll.scrollTop }), order: arranger.order, dispose() { viewport.destroy(); arranger.destroy(); hints.destroy(); }, appearance: () => ({ ...appearance }), visibility: () => ({ ...visibility }),
+  return { root, elements, mount: viewport.mount, settingsOpen: settingsWindow.isOpen, dismissHints() { hints.dismiss('panel-hidden'); arranger.cancel(); settingsWindow.close(); }, tooltipReport: hints.report, settingsTab: () => activeSettingsTab, scrollReport: () => ({ layout: viewport.report(), height: scroll.clientHeight, contentHeight: scroll.scrollHeight, top: scroll.scrollTop, settings: settingsWindow.report() }), order: arranger.order, dispose() { viewport.destroy(); settingsWindow.destroy(); arranger.destroy(); hints.destroy(); focus.destroy(); }, appearance: () => ({ ...appearance }), visibility: () => ({ ...visibility }),
     values: () => ({ overwrite: elements.overwrite.checked, srgb: elements.srgb.checked, compression: String(compression.value), smartAreaBlurPercent: String(smartAreaBlurPercent.value), expandPx: String(expandPx.value) }),
-    reportStatus(text) { elements.reportStatus.textContent = text; elements.reportStatus.hidden = !text; },
+    reportStatus(text) { elements.reportStatus.textContent = text; elements.reportStatus.hidden = !text; if (settingsWindow.isOpen()) settingsStatus.textContent = text; },
     status(text, state, needsExternal) {
       if (text !== statusText || state !== statusState) {
         statusText = text; statusState = state; elements.statusText.textContent = String(text).split('\n')[0];
@@ -263,7 +293,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     disable(value) {
       if (value) { hints.dismiss(); if (arranger.active) arranger.setActive(false); }
       root.setAttribute('aria-busy', String(value));
-      [...tools.map(t => t.id), 'external', 'report', 'copyReport', 'copyReportHelp', 'arrange', 'arrangeDone', 'arrangeReset', 'arrangeTools'].forEach(id => controls[id](value));
+      [...tools.map(t => t.id), 'external', 'report', 'copyReport', 'copyReportHelp', 'arrange', 'arrangeDone', 'arrangeReset', 'arrangeTools', 'settings'].forEach(id => controls[id](value));
       for (const id of ['overwrite', 'srgb', 'compression', 'smartAreaBlurPercent', 'expandPx']) if (elements[id].disabled !== value) elements[id].disabled = value;
       for (const id of ['compression', 'smartAreaBlurPercent', 'expandPx']) controls['reset-' + id](value);
       for (const [id, field] of Object.entries(numberControls)) { field.disable(value); if (sizeControls.includes(id)) { elements[id].disabled = value; controls['reset-' + id](value); } }

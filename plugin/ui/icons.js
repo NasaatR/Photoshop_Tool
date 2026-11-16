@@ -16,6 +16,18 @@ const paths = {
   settings: 'M9 2h6v3l2 1 2-2 3 4-2 2v4l2 2-3 4-2-2-2 1v3H9v-3l-2-1-2 2-3-4 2-2v-4L2 8l3-4 2 2 2-1V2zm2 2v3l-4 2-2-2-1 1 2 2v4l-2 2 1 1 2-2 4 2v3h2v-3l4-2 2 2 1-1-2-2v-4l2-2-1-1-2 2-4-2V4h-2zm1 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm0 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4z'
 };
 function icon(doc, name) {
+  if (name === 'expand') {
+    // Lucide expand, ISC license: LICENSE-LUCIDE.txt. Source:
+    // https://github.com/lucide-icons/lucide/blob/main/icons/expand.svg
+    const svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    for (const [key, value] of Object.entries({ viewBox: '0 0 24 24', class: 'pt-icon', 'aria-hidden': 'true', focusable: 'false' })) svg.setAttribute(key, value);
+    for (const d of ['m15 15 6 6', 'm15 9 6-6', 'M21 16v5h-5', 'M21 8V3h-5', 'M3 16v5h5', 'm3 21 6-6', 'M3 8V3h5', 'M9 9 3 3']) {
+      const path = doc.createElementNS('http://www.w3.org/2000/svg', 'path');
+      for (const [key, value] of Object.entries({ d, fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' })) path.setAttribute(key, value);
+      svg.appendChild(path);
+    }
+    return svg;
+  }
   if (!paths[name]) throw new Error('Unknown bundled icon: ' + name);
   const svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', '0 0 24 24');

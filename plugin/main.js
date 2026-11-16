@@ -33,7 +33,7 @@ function capture() { if (view) { draft = view.values(); appearance = view.appear
 function options() { capture(); return readExportDraft(draft); }
 function disable(value) { uiBusy = value; if (view) view.disable(value); }
 async function invoke(id, menu) {
-  if (runner.busy || uiBusy) return;
+  if (runner.busy || uiBusy || view && view.settingsOpen()) return;
   let value;
   try { capture(); const tool = registry.get(id); value = tool.readOptions ? tool.readOptions(draft) : {}; } catch (e) { runner.reject(id, e); status(e.message, 'error'); if (menu) try { await ps.app.showAlert(e.message); } catch (alertError) { diagnostics.error('alert', alertError); } return; }
   disable(true);
@@ -80,7 +80,7 @@ function mount(root) {
     roots.add(root);
   }
   if (!view) view = createPanel(root.ownerDocument || document, registry.list(), draft, appearance, visibility, {
-    run: id => invoke(id, false), external, report: () => report('file'), copyReport: () => report('clipboard'), draft: capture,
+    run: id => invoke(id, false), external, report: () => report('file'), copyReport: () => report('clipboard'), draft: capture, error: failure,
     changed(scope) {
       try {
         capture();

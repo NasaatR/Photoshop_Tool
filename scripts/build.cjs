@@ -43,6 +43,7 @@ function build() {
   const files = walk(runtime).sort((a, b) => a.endsWith('manifest.json') ? -1 : b.endsWith('manifest.json') ? 1 : (a < b ? -1 : a > b ? 1 : 0));
   const entries = files.map(file => [path.relative(runtime, file).split(path.sep).join('/'), fs.readFileSync(file)]);
   entries.push(['LICENSE.txt', fs.readFileSync(path.join(root, 'LICENSE'))]);
+  entries.push(['LICENSE-LUCIDE.txt', fs.readFileSync(path.join(root, 'LICENSE-LUCIDE.txt'))]);
   const filename = release.filename, output = path.join(root, 'dist', filename);
   fs.mkdirSync(path.dirname(output), { recursive: true }); fs.writeFileSync(output, zip(entries));
   const sha256 = crypto.createHash('sha256').update(fs.readFileSync(output)).digest('hex');

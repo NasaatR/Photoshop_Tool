@@ -124,11 +124,11 @@ test('failed report file write is captured in the next copied report without ove
   await find(f.root, 'copyReport').fire('click'); const r = f.copied();
   assert.match(r.lastOperation.failure.message, /Open a document/); assert.ok(r.diagnostics.events.some(e => e.scope === 'report file' && e.error.message === 'Disk full'));
 });
-test('explicit resize range and one scroll body keep settings and reporting inside the panel', () => {
+test('main panel and separate settings dialog own bounded independent scroll bodies', () => {
   const { createManifest } = require('../scripts/build.cjs'); const m = createManifest({ name: 'Test', id: 'test', version: '0.3.1' }, registry.list()), p = m.entrypoints[0];
   assert.ok(p.maximumSize.width > p.preferredFloatingSize.width * 4); assert.ok(p.maximumSize.height > p.preferredFloatingSize.height * 4);
   const { view } = panel(); const toolbar = view.elements.settings.parentNode.parentNode;
-  assert.equal(toolbar.parentNode, view.elements.options.parentNode); assert.equal(view.elements.copyReport.parentNode.parentNode, toolbar.parentNode);
+  assert.equal(toolbar.parentNode.id, 'scroll'); assert.equal(view.elements.options.parentNode.id, 'settingsScroll'); assert.equal(view.elements.copyReport.parentNode.parentNode.id, 'scroll'); assert.equal(view.elements['photoshoptool-settings'].parentNode.tagName, 'dialog'); view.dispose();
   assert.doesNotMatch(require('../plugin/ui/styles.js'), /100vh/);
 });
 test('new layer section preserves hidden overrides and disappears when all its tools are hidden', async () => {
@@ -323,4 +323,42 @@ test('custom height reloads without resetting identity/theme/order and invalid t
   assert.equal(find(f.root, 'buttonSize').value, '20'); assert.match(find(f.root, 'sizing').textContent, /120px/); assert.equal(find(f.root, 'buttonSize').getAttribute('aria-invalid'), 'true');
   assert.equal(JSON.parse(f.stored.get('pngrelay.appearance.v1')).buttonSize, 120);
   f.setup.panels.relayPanel.destroy();
+});
+test('Settings is a separate themed window with reusable drafts and main scroll position preserved', async () => {
+  const { view } = panel(); const input = view.elements.expandPx, main = view.elements.scroll;
+  input.value = ''; main.scrollTop = 90; await view.elements.settings.fire('mousedown'); await view.elements.settings.fire('click');
+  assert.equal(view.settingsOpen(), true); assert.equal(view.elements.settingsDialog.open, true); assert.equal(view.elements.options.parentNode, view.elements.settingsScroll);
+  assert.equal(view.elements['photoshoptool-settings'].className, view.root.className); assert.equal(main.scrollTop, 90);
+  await view.elements['theme-light'].fire('click'); assert.match(view.elements['photoshoptool-settings'].className, /pt-light/);
+  await view.elements.settingsClose.fire('mousedown'); await view.elements.settingsClose.fire('click');
+  assert.equal(view.settingsOpen(), false); assert.equal(view.elements.settings.getAttribute('aria-expanded'), 'false'); assert.equal(view.elements.settings.getAttribute('data-keyboard-focus'), null);
+  await view.elements.settings.fire('click'); assert.equal(view.elements.expandPx, input); assert.equal(input.value, ''); assert.equal(view.elements.settingsDialog.dialogOpens, 2);
+  view.dispose(); assert.equal(view.elements.settingsDialog.open, false);
+});
+test('settings hints belong to the dialog, use unique IDs and Escape dismisses the hint before closing', async () => {
+  const { view } = panel(); view.elements['photoshoptool-settings'].rect = { left: 0, top: 0, width: 420, height: 560 };
+  await view.elements.settings.fire('click'); await view.elements.expandPx.fire('focus');
+  const hint = find(view.elements['photoshoptool-settings'], 'settings-tooltip'); assert.equal(hint.hidden, false); assert.equal(view.elements.expandPx.getAttribute('aria-describedby'), 'settings-tooltip');
+  await view.elements.settingsDialog.fire('keydown', { key: 'Escape' }); assert.equal(hint.hidden, true); assert.equal(view.settingsOpen(), true);
+  await view.elements.settingsDialog.fire('keydown', { key: 'Escape' }); assert.equal(view.settingsOpen(), false); assert.equal(view.elements.settings.focused, true);
+  view.dispose();
+});
+test('Camera Raw and Mask are large, other layer tools stay compact and Expand has outward arrow paths', () => {
+  const { view } = panel(); const area = view.elements['selection.expand'].parentNode;
+  for (const id of ['layers.camera-raw', 'layers.black-mask', 'layers.fill-current']) assert.equal(view.elements[id].parentNode, area);
+  assert.equal(area.getAttribute('data-density'), 'standard'); assert.equal(view.elements['layers.smart-object'].parentNode.getAttribute('data-density'), 'compact');
+  assert.equal(view.elements['selection.expand'].children[0].children.length, 8);
+  assert.equal(view.elements['selection.expand'].children[0].children[0].getAttribute('stroke'), 'currentColor');
+  const css = require('../plugin/ui/styles.js'); assert.doesNotMatch(css, /\.pt-control:focus\s*\{/); assert.match(css, /data-keyboard-focus/);
+  view.dispose();
+});
+test('native settings failure is diagnosable and running tools are blocked while settings is open', async () => {
+  const f = mainFixture(); f.setup.panels.relayPanel.create(f.root);
+  const dialog = find(f.root, 'settingsDialog'); dialog.uxpShowModal = () => Promise.reject(new Error('Window unavailable'));
+  await find(f.root, 'settings').fire('click'); await Promise.resolve(); await find(f.root, 'copyReport').fire('click');
+  assert.ok(f.copied().diagnostics.events.some(event => event.scope === 'settings window' && /Window unavailable/.test(event.message)));
+  const good = mainFixture(); good.setup.panels.relayPanel.create(good.root); await find(good.root, 'settings').fire('click');
+  await good.setup.commands.exportCopy(); await find(good.root, 'copyReportHelp').fire('click'); assert.equal(good.copied().lastOperation, null);
+  assert.match(find(good.root, 'settingsStatus').textContent, /Report copied/);
+  f.setup.panels.relayPanel.destroy(); good.setup.panels.relayPanel.destroy();
 });
