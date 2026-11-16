@@ -97,9 +97,15 @@ function fixture(fail = {}) {
       copied.composition = original.composition; source.layers.push(copied); source.activeLayers = [copied];
     }
     if (c._obj === 'newPlacedLayer') source.activeLayers[0].kind = C.LayerKind.SMARTOBJECT;
+    if (c._obj === 'gaussianBlur') {
+      assert.equal(source.activeChannels[0].kind, 'mask'); assert.equal(source.selection.bounds, null);
+      assert.equal(source.activeLayers[0].layerMaskFeather, 0); assert.equal(c.radius._unit, 'pixelsUnit'); assert.ok(c.radius._value >= 0.1 && c.radius._value <= 250);
+      source.activeLayers[0].mask.bakedRadius = c.radius._value;
+    }
     if (c._obj === 'placedLayerEditContents') { const region = source.activeLayers[0].region; makeDoc('Cutout.psb', 'C:/Temp/Cutout.psb', region.width, region.height); }
     if (c._obj === 'select') {
       if (c._target[0]._ref === 'document') app.activeDocument = app.documents.find(d => d.id === c._target[0]._id);
+      else if (c._target[0]._ref === 'channel') { assert.equal(c._target[0]._value, 'mask'); assert.equal(c._target[1]._id, source.activeLayers[0].id); assert.equal(c._target[2]._id, source.id); assert.ok(source.activeLayers[0].mask); source.activeChannels = [{ kind: 'mask' }]; }
       else source.activeLayers = [allLayers(source.layers).find(layer => layer.id === c._target[0]._id)];
     }
     return [{}];
@@ -108,6 +114,6 @@ function fixture(fail = {}) {
   const host = createHost(ps), services = { png: createPNGService(host, createOutputAccess(fs), file => file.read()) };
   const runner = createRunner(registry, context => ({ ...context, services }), (...s) => statuses.push(s), '0.3.3');
   return { app, source, C, files, Entry, folder, events, ctx, statuses, copied, stamps, runner, services, host, makeLayer: (name, kind) => makeLayer(source, name, kind), folderCalls: () => folderCalls,
-    run: (id = 'png.export-copy', options) => runner.run(id, { ...normalizeExport(options), ...(options && options.maskFeather != null ? { maskFeather: options.maskFeather } : {}) }) };
+    run: (id = 'png.export-copy', options) => runner.run(id, { ...normalizeExport(options), ...(options && options.maskBlurPercent != null ? { maskBlurPercent: options.maskBlurPercent } : {}) }) };
 }
 module.exports = { fixture };

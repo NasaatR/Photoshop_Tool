@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.5 (native 1.5.0)
+
+- Smart Area now creates an ordinary pixel mask with blur baked once into its pixels. Explicitly select the mask channel by owner/document IDs, deselect the pixel selection for the filter and keep live Feather at 0. Later brush edits are not continuously softened, and no Smart Filter or image blur is added. Preserve exact selection, parent history rollback and existing masks.
+- Replace pixel feather with Edge blur % of the region’s shorter bounding-box side, default 5%, range 0–100. Use one native Gaussian pass (0.1–250 px); report requested/effective radius and limiting. Zero skips blur; clamp the inset to retain a nonempty core. No full-image JavaScript buffers or extra documents are added.
+- Store percentage preferences under smartArea.v2; retain the old v1 pixel preference unchanged, preserve zero and start nonzero legacy values at the new 5% default. Keep other preferences, tool IDs, order, panel layout and issued installers.
+- Cover pixel-mask targeting, one-pass baking, zero/full-canvas/tiny/thin cases, scale-relative percentages, native failure/cancellation rollback and setting persistence with regression tests. Native Photoshop painting/visual execution remains unverified here.
+
 ## 1.4 (native 1.4.0)
 
 - Rename Extract + PNG to Smart Area while preserving its tool/command IDs, visibility and order. Add an editable feathered pixel mask to the parent Smart Object, contract inward for a useful edge fade, preserve exact selection and roll back mask/extraction failures together. PNG/clipboard still contain the unmasked contents. Add independent 0–1000 px feather preferences with 24 px default and tiny/thin-region handling.

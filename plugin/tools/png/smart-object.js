@@ -52,7 +52,7 @@ async function createSelectionSmartObject(host, ctx, source, plan, root, job) {
       job.record.smartLayerIDs.smart = smartID;
       if (plan.composite) requireLayer(host, source, smartID).name = smartName;
     });
-    mask = await addSoftMask(host, ctx, source, smartID, channelName, job.options.maskFeather ?? 24, job);
+    mask = await addSoftMask(host, ctx, source, smartID, channelName, job.options.maskBlurPercent ?? 5, job);
     await step(job, 'restore-selection', 'Restoring the original selection…', async () => {
       host.cancel(ctx);
       if (channelName) { await source.selection.load(savedChannel(host, source, channelName)); host.cancel(ctx); await savedChannel(host, source, channelName).remove(); }

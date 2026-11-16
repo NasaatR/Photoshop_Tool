@@ -122,11 +122,11 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   settingsPanels.export.appendChild(append(make('label'), [make('span', 'Compression'), compression]));
   settingsPanels.export.appendChild(make('p', 'Lossless · 0 fast / 9 small', { class: 'pt-hint' }));
   heading(settingsPanels.export, 'Smart Area');
-  const smartAreaFeather = make('input', null, { id: 'smartAreaFeather', type: 'number', min: '0', max: '1000', step: '0.1', 'aria-label': 'Smart Area mask feather in pixels' }); smartAreaFeather.value = String(draft.smartAreaFeather ?? 24);
-  hints.bind(smartAreaFeather, () => ({ title: 'Mask feather · px' }));
-  smartAreaFeather.addEventListener('input', handlers.draft); smartAreaFeather.addEventListener('change', handlers.changed);
-  settingsPanels.export.appendChild(append(make('label'), [make('span', 'Mask feather · px'), smartAreaFeather]));
-  settingsPanels.export.appendChild(make('p', 'Editable mask on the parent object. Small areas use a smaller radius; 0 keeps a hard mask.', { class: 'pt-hint' }));
+  const smartAreaBlurPercent = make('input', null, { id: 'smartAreaBlurPercent', type: 'number', min: '0', max: '100', step: '0.1', 'aria-label': 'Smart Area edge blur, percent of the shorter side' }); smartAreaBlurPercent.value = String(draft.smartAreaBlurPercent ?? 5);
+  hints.bind(smartAreaBlurPercent, () => ({ title: 'Edge blur · %' }));
+  smartAreaBlurPercent.addEventListener('input', handlers.draft); smartAreaBlurPercent.addEventListener('change', handlers.changed);
+  settingsPanels.export.appendChild(append(make('label'), [make('span', 'Edge blur · %'), smartAreaBlurPercent]));
+  settingsPanels.export.appendChild(make('p', 'Of the area’s shorter side. Baked once; Feather stays 0. Native radius: 0.1–250 px; 0% disables blur.', { class: 'pt-hint' }));
   for (const group of groups.values()) {
     heading(settingsPanels.tools, group.tools[0].group || 'Tools'); const list = make('div', null, { class: 'pt-tool-options' }); settingsPanels.tools.appendChild(list);
     group.tools.forEach(tool => list.appendChild(checkbox('visible-' + tool.id, tool.label, isVisible(tool), () => {
@@ -154,7 +154,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   [
     'Photoshop Tool ' + version + ' · Made by Nasaat',
     'Arrange buttons: use the arrow icon in the toolbar. Drag within a section, pick a button and its new position, or use arrow keys. Done/Escape ends arranging; Reset order keeps other settings.',
-    'Smart Area extracts the current pixel selection from one selected pixel layer. With no suitable layer, it stamps the visible composition. Without a pixel selection, it uses the full canvas. A soft editable mask blends its edges in the parent PSD; the PNG/clipboard contain the unmasked Smart Object contents. Set mask feather in Export settings.',
+    'Smart Area extracts the current pixel selection from one selected pixel layer. With no suitable layer, it stamps the visible composition. Without a pixel selection, it uses the full canvas. A normal pixel mask blends its edges in the parent PSD. Blur is baked once, so later brush strokes remain unaffected (Feather = 0). PNG/clipboard contain the unmasked contents. Set Edge blur % in Export settings.',
     'Original layers stay editable. Temporary composite layers/channels are removed; the new Smart Object stays in the PSD and its contents remain open. PNG + Copy inside them updates the same export in this session.',
     'Copy copies all visible layers as one full-canvas image, ignoring the current selection. It saves no file and also works without a saved PSD.',
     'PNG + Copy saves the PNG and copies the same prepared composition. The optional PNG only tool keeps the clipboard unchanged.',
@@ -203,7 +203,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   }
   selectSettingsTab('view'); updateVisibility(); applyAppearance({}, true);
   return { root, elements, mount: viewport.mount, dismissHints() { hints.dismiss('panel-hidden'); arranger.cancel(); }, tooltipReport: hints.report, settingsTab: () => activeSettingsTab, scrollReport: () => ({ layout: viewport.report(), height: scroll.clientHeight, contentHeight: scroll.scrollHeight, top: scroll.scrollTop }), order: arranger.order, dispose() { viewport.destroy(); arranger.destroy(); hints.destroy(); }, appearance: () => ({ ...appearance }), visibility: () => ({ ...visibility }),
-    values: () => ({ overwrite: elements.overwrite.checked, srgb: elements.srgb.checked, compression: String(compression.value), smartAreaFeather: String(smartAreaFeather.value) }),
+    values: () => ({ overwrite: elements.overwrite.checked, srgb: elements.srgb.checked, compression: String(compression.value), smartAreaBlurPercent: String(smartAreaBlurPercent.value) }),
     reportStatus(text) { elements.reportStatus.textContent = text; elements.reportStatus.hidden = !text; },
     status(text, state, needsExternal) {
       if (text !== statusText || state !== statusState) {
@@ -220,7 +220,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
       if (value) { hints.dismiss(); if (arranger.active) arranger.setActive(false); }
       root.setAttribute('aria-busy', String(value));
       [...tools.map(t => t.id), 'external', 'report', 'copyReport', 'copyReportHelp', 'arrange', 'arrangeDone', 'arrangeReset', 'arrangeTools'].forEach(id => controls[id](value));
-      for (const id of ['overwrite', 'srgb', 'compression', 'smartAreaFeather']) if (elements[id].disabled !== value) elements[id].disabled = value;
+      for (const id of ['overwrite', 'srgb', 'compression', 'smartAreaBlurPercent']) if (elements[id].disabled !== value) elements[id].disabled = value;
     }
   };
 }

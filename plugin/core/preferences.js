@@ -6,15 +6,16 @@ const TOOLS_KEY = 'photoshoptool.tools.v1';
 const COPY_BUTTON_KEY = 'photoshoptool.copyButton.v1';
 const DESIGN_KEY = 'photoshoptool.designRefresh.v1';
 const ORDER_KEY = 'photoshoptool.order.v1';
-const SMART_AREA_KEY = 'photoshoptool.smartArea.v1';
+const SMART_AREA_KEY = 'photoshoptool.smartArea.v2';
 function normalizeSmartArea(raw) {
-  const r = raw && raw.schema === 1 ? raw : {};
-  return { schema: 1, feather: typeof r.feather === 'number' && Number.isFinite(r.feather) && r.feather >= 0 && r.feather <= 1000 ? r.feather : 24 };
+  const r = raw && raw.schema === 2 ? raw : {};
+  const legacyZero = raw && raw.schema === 1 && raw.feather === 0;
+  return { schema: 2, blurPercent: typeof r.blurPercent === 'number' && Number.isFinite(r.blurPercent) && r.blurPercent >= 0 && r.blurPercent <= 100 ? r.blurPercent : legacyZero ? 0 : 5 };
 }
 function readSmartAreaDraft(draft) {
-  const raw = draft.smartAreaFeather == null ? '24' : String(draft.smartAreaFeather), feather = Number(raw);
-  if (!raw.trim() || !Number.isFinite(feather) || feather < 0 || feather > 1000) throw new Error('Smart Area feather must be from 0 to 1000 px.');
-  return { ...readExportDraft(draft), maskFeather: feather };
+  const raw = draft.smartAreaBlurPercent == null ? '5' : String(draft.smartAreaBlurPercent), blurPercent = Number(raw);
+  if (!raw.trim() || !Number.isFinite(blurPercent) || blurPercent < 0 || blurPercent > 100) throw new Error('Smart Area edge blur must be from 0 to 100%.');
+  return { ...readExportDraft(draft), maskBlurPercent: blurPercent };
 }
 function normalizeExport(raw) {
   const r = raw && raw.schema === 1 ? raw : {};
@@ -37,7 +38,7 @@ function createPreferences(storage) {
   return {
     problems: () => problems.slice(),
     export: () => normalizeExport(read(EXPORT_KEY)), appearance: () => normalizeAppearance(read(APPEARANCE_KEY)),
-    smartArea: () => normalizeSmartArea(read(SMART_AREA_KEY)),
+    smartArea: () => normalizeSmartArea(read(SMART_AREA_KEY) ?? read('photoshoptool.smartArea.v1')),
     saveSmartArea(value) { const next = normalizeSmartArea(value); storage.setItem(SMART_AREA_KEY, JSON.stringify(next)); return next; },
     order() { const raw = read(ORDER_KEY); return raw && raw.schema === 1 ? normalizeOrder(raw.ids) : []; },
     saveOrder(value) { const next = normalizeOrder(value); storage.setItem(ORDER_KEY, JSON.stringify({ schema: 1, ids: next })); return next; },
