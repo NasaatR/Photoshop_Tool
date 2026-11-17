@@ -6,7 +6,7 @@ A modular Adobe Photoshop UXP toolbox by NasaatR. It combines full-resolution PN
 
 ## Download and install
 
-**Development preview 1.8:** [Download Photoshop-Tool-v1.8.ccx](https://github.com/NasaatR/Photoshop_Tool/raw/refs/heads/develop/dist/Photoshop-Tool-v1.8.ccx). This is the installable plugin, not GitHub's source ZIP. [SHA-256](dist/SHA256SUMS.txt).
+**Development preview 1.9:** [Download Photoshop-Tool-v1.9.ccx](https://github.com/NasaatR/Photoshop_Tool/raw/refs/heads/develop/dist/Photoshop-Tool-v1.9.ccx). This is the installable plugin, not GitHub's source ZIP. [SHA-256](dist/SHA256SUMS.txt).
 
 1. Close Photoshop. Double-click the `.ccx` file and approve installation/update in Creative Cloud Desktop.
 2. Open Photoshop → **Plugins → Photoshop Tool → Photoshop Tool**.
@@ -18,7 +18,7 @@ Code is in **develop**, as requested by the repository owner. `main` is delibera
 
 ## Version numbering
 
-The owner-requested migration starts **v1.0**, native manifest/package **1.0.0**, after the issued **0.3.5**. Future personal releases are **1.1 … 1.9 → 2.0**, with native **1.1.0 … 1.9.0 → 2.0.0**. These are sequential release labels, not compatibility promises. `package.json.version` is the single source; the build derives display version and `Photoshop-Tool-v1.8.ccx`. Current release: display **1.8**, native **1.8.0**. The panel/report header shows 1.8; JSON diagnostics retain native `version: 1.8.0` plus `displayVersion: 1.8`. Plugin/command IDs and settings stay unchanged. Issued 0.3.x packages keep their names/bytes; installing this CCX is the normal update path.
+The owner-requested migration starts **v1.0**, native manifest/package **1.0.0**, after the issued **0.3.5**. Future personal releases are **1.1 … 1.9 → 2.0**, with native **1.1.0 … 1.9.0 → 2.0.0**. These are sequential release labels, not compatibility promises. `package.json.version` is the single source; the build derives display version and `Photoshop-Tool-v1.9.ccx`. Current release: display **1.9**, native **1.9.0**. The panel/report header shows 1.9; JSON diagnostics retain native `version: 1.9.0` plus `displayVersion: 1.9`. Plugin/command IDs and settings stay unchanged. Issued 0.3.x packages keep their names/bytes; installing this CCX is the normal update path.
 
 ## Included tools
 
@@ -88,13 +88,23 @@ The gear opens a native **Photoshop Tool · Settings** window, initially 420×56
 
 Pointer clicks no longer leave the gear's white keyboard-focus frame. Keyboard navigation retains a visible focus outline. Expand Selection uses four outward arrows; Camera Raw and Mask / Invert are large Area & transform buttons. Existing command IDs, visibility and saved order remain intact. Settings share the main theme and native sliders; there is no background polling or control rebuilding on preview. Window-open failures retain the original error in diagnostics. Implementation follows [Adobe's UXP modal dialog API](https://developer.adobe.com/uxp/guides/how-to/add-modal-dialogs/). Native window sizing, scrolling and focus rendering still need confirmation in Photoshop.
 
+## Interface refresh (1.9)
+
+All tool and utility glyphs now share the bundled Lucide outline family, matched at 24-unit geometry and stroke 2. **Fill Current Layer** uses Scaling (a square and a diagonal outward arrow); **Smart Area** uses Scan (area corners); **Expand Selection** retains four outward arrows. PNG/PSD format labels remain visible in icon-only mode. Softer tile borders, rounded surfaces, aligned section headings and clearer hover/keyboard/disabled states keep the four-column main layout and compact Layers tier. Explicit appearance overrides remain respected.
+
+Settings keep one tab row above the independent scroll area, so View / Buttons / Actions / Help remain reachable while editing. Action parameters are grouped by tool; Buttons presents aligned icon/name/visibility rows. Native sliders, exact values, scoped resets, last tab and drafts remain intact. The viewport observes footer/tab size changes as well as the host; wrapped feedback reduces available scroll height instead of pushing Close out of view. Positive client height takes precedence over content-box observer hints, avoiding double subtraction of padding.
+
+**View → Copy appearance** writes portable JSON for the current valid preview, with product/version/schema, local scope, exact units, overrides and saved/unsaved status. It excludes document data, paths, accounts and permissions. This explicit action replaces the image clipboard with text; no clipboard reads or uploads occur. On denial, a selectable JSON field provides a fallback without a false Copied message. Invalid height drafts must be corrected first. Hiding every tool exposes Choose buttons instead of leaving an unexplained empty panel.
+
+Checks cover the affected UI lifecycle/settings/clipboard and existing tools with mocks plus build/package checks. The selected SVGs were visually inspected at 18/22 px; this is not native Photoshop layout or action execution evidence. The live browser preview route was blocked by its URL policy; native Photoshop rendering, focus and clipboard paste remain unverified here.
+
 ## Arrange buttons
 
 Use the **Arrange buttons** arrow icon beside the caption/settings controls. In this mode, drag a tool onto its desired position, or click the tool and then the destination. Arrow keys move the focused tool one position. Order is changed within Export & copy, Area & transform or Layers; moving does not run a Photoshop command. Choose **Done** or Escape to finish; **Reset order** restores the registry order without changing tool visibility, appearance or export options. Ordering includes hidden tools, survives recreation/update and appends new tools to their section. Settings failures appear in the status/report.
 
 ## Export behavior and limits
 
-- Windows 11; Photoshop **26.9+**, UXP API v2. Version 0.1.1 was reported working by the user. This 1.8 build has not been executed in a real Photoshop host here.
+- Windows 11; Photoshop **26.9+**, UXP API v2. Version 0.1.1 was reported working by the user. This 1.9 build has not been executed in a real Photoshop host here.
 - Original canvas dimensions and source 8/16-bit depth; RGB/Grayscale only. No lossy compression or arbitrary resizing. Other modes and 32-bit/HDR are refused instead of silently converted. Optional sRGB conversion changes only the temporary copy.
 - PNG uses current in-memory artwork, including unsaved edits. It does **not** automatically save/flatten the source PSD. Artboards export the full document canvas, not separate board files.
 - Smart Area input follows the table below. The visible-composite path uses native Stamp Visible (`mergeVisible` with `duplicate: true`, equivalent to Shift+Ctrl+Alt+E) on an owned temporary pixel layer at the top. Original layers remain editable and hidden layers stay excluded. The full stamp and helper are removed after extracting the region, leaving exactly one new Smart Object. The original pixel selection is saved/loaded through an owned alpha channel to preserve its exact feathered/nonrectangular shape. Extraction applies that shape; Smart Area then adds a separate soft mask on the parent object. The temporary channel is removed afterward. No selection means an explicit full-canvas rectangle, including when artboards are present; the original no-selection state is restored. Quick Mask and non-composite channels are still refused. Native Photoshop masks/styles/blending semantics apply.
@@ -113,7 +123,7 @@ Composite preparation, extraction and conversion share one parent-document histo
 
 ## Recovery, data and permissions
 
-Filesystem permission is **fullAccess** so the requested export beside a saved PSD needs no folder picker. Runtime resolves and verifies only the intended project-folder Entry for each export, using UXP's storage provider. Old folder-token settings remain untouched but are no longer needed. `clipboard: readAndWrite` is UXP's permission required for **Copy report**; the plugin only writes diagnostic text on that explicit action and never reads the clipboard. Image copying still uses Photoshop's native image commands. No network, process launch or native helper. Nothing is uploaded. Copy only writes no files; diagnostic text is exported only by its own buttons.
+Filesystem permission is **fullAccess** so the requested export beside a saved PSD needs no folder picker. Runtime resolves and verifies only the intended project-folder Entry for each export, using UXP's storage provider. Old folder-token settings remain untouched but are no longer needed. `clipboard: readAndWrite` is UXP's permission required for **Copy report** and **Copy appearance**; the plugin only writes text on these explicit actions and never reads the clipboard. Image copying still uses Photoshop's native image commands. No network, process launch or native helper. Nothing is uploaded. Copy only writes no files; diagnostic text is exported only by its own buttons.
 
 Before PNG replacement, the old file is moved to an operation-specific backup. Failed replacement attempts restore the backup when possible, retaining a direct handle instead of depending on a second file lookup. This is recovery handling, not an atomic filesystem transaction. Do not run simultaneous exporters on one output path. A PNG already open in Photoshop blocks replacement. Crashes or disk failures can leave `.photoshoptool-export-*` or `.photoshoptool-backup-*` files beside the PSD; inspect them before cleanup. Never delete a pre-existing PSD to recover an export.
 
@@ -123,7 +133,7 @@ PNG commit, clipboard updates and parent-document edits are separate effects. Pa
 
 ## Add a tool
 
-See [docs/adding-tools.md](docs/adding-tools.md). A bundled module declares a stable tool ID, existing/custom icon, menu command ID, labels and an async handler. Register the module once in `plugin/tools/index.js`; the UI and generated manifest use that registry. Tool-specific option validation is optional and does not block unrelated tools. No editing the runner or hardcoded panel buttons is required.
+See [docs/adding-tools.md](docs/adding-tools.md). A bundled module declares a stable tool ID, bundled Lucide icon, menu command ID, labels and an async handler. Register the module once in `plugin/tools/index.js`; the UI and generated manifest use that registry. Tool-specific option validation is optional and does not block unrelated tools. No editing the runner or hardcoded panel buttons is required.
 
 | Location | Responsibility |
 | --- | --- |
@@ -145,9 +155,9 @@ The owner reported the 0.3.5 layer tools working. This update additionally skips
 
 Local checks cover registry extension/duplicate IDs, manifest parity, source syntax/imports, preference preservation, direct folder resolution with no picker, full-size 16-bit output, PNG structure/CRC verification without opening a document, full-composition copy with an existing selection, copy/save variants, file backup/restore failures, stale targets, cancellation, Smart Object rollback/retry, keyboard controls, one-time Copy visibility migration, idle no-op rendering and report export/failures/history bounds. They use mocks, not real Photoshop. CCX files are also checked with an independent ZIP reader.
 
-Not verified here: native Photoshop 1.8 installation/rendering/resizing, real Stamp Visible/selection-alpha behavior, PNG appearance/ICC, external paste/alpha, text clipboard or Microsoft Defender acceptance. UI structure/keyboard/preferences are checked with DOM mocks; a screenshot/native visual review of this version was not available. White flashing remains undiagnosed. No antivirus certification or release signing is claimed. A focused host check is: select a region with a text/group layer active (then with no active layer), click Smart Area, confirm one new object/open contents plus PNG/copy and unchanged original layers/selection; repeat with no pixel selection to check the whole canvas. Return Copy report if an action fails.
+Not verified here: native Photoshop 1.9 installation/rendering/resizing, real Stamp Visible/selection-alpha behavior, PNG appearance/ICC, external paste/alpha, text clipboard or Microsoft Defender acceptance. UI structure/keyboard/preferences are checked with DOM mocks; a screenshot/native visual review of this version was not available. White flashing remains undiagnosed. No antivirus certification or release signing is claimed. A focused host check is: select a region with a text/group layer active (then with no active layer), click Smart Area, confirm one new object/open contents plus PNG/copy and unchanged original layers/selection; repeat with no pixel selection to check the whole canvas. Return Copy report if an action fails.
 
-Original project: **[NasaatR/Photoshop_Tool](https://github.com/NasaatR/Photoshop_Tool)**. MIT licensed; [LICENSE](LICENSE). The understated UI credit is **Made by Nasaat**; it does not add a restriction to the MIT license. The Expand icon is from [Lucide](https://github.com/lucide-icons/lucide/blob/main/icons/expand.svg); its applicable notices are retained in [LICENSE-LUCIDE.txt](LICENSE-LUCIDE.txt) and the CCX. No third-party runtime dependencies or copied exporter code are bundled.
+Original project: **[NasaatR/Photoshop_Tool](https://github.com/NasaatR/Photoshop_Tool)**. MIT licensed; [LICENSE](LICENSE). The understated UI credit is **Made by Nasaat**; it does not add a restriction to the MIT license. Bundled icons are from [Lucide](https://github.com/lucide-icons/lucide); selected asset names and the exact source commit are recorded in `plugin/ui/icon-data.json`. Applicable notices are retained in [LICENSE-LUCIDE.txt](LICENSE-LUCIDE.txt) and the CCX. No third-party runtime dependencies or copied exporter code are bundled.
 
 Primary platform references: [Photoshop document API](https://developer.adobe.com/photoshop/uxp/2022/ps-reference/classes/document), [modal/history](https://developer.adobe.com/photoshop/uxp/2022/ps-reference/media/executeasmodal), [Adobe independent package format](https://developer.adobe.com/developer-distribution/creative-cloud/docs/guides/submission/overview), [CCX installation](https://developer.adobe.com/uxp/guides/how-to/distribution/install/).
 

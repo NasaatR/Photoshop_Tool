@@ -14,6 +14,7 @@ const { createLayerService } = require('./tools/layers/service.js');
 const { createPSDService } = require('./tools/psd/service.js');
 const { createSelectionService } = require('./tools/selection/service.js');
 const { createPanel } = require('./ui/panel.js');
+const { appearanceSnapshot } = require('./core/appearance-snapshot.js');
 const preferences = createPreferences(localStorage);
 const diagnostics = createDiagnostics();
 const environment = getEnvironment(ps, uxp);
@@ -56,6 +57,21 @@ function reportText() {
     tools: registry.list().map(t => t.id), diagnostics: diagnostics.report() });
 }
 function reportStatus(text) { if (view) view.reportStatus(text); }
+async function copyAppearance() {
+  if (!view || uiBusy || runner.busy) return;
+  const target = view; let text = '';
+  disable(true);
+  try {
+    text = JSON.stringify(appearanceSnapshot(product, target.appearanceExport()), null, 2);
+    const clipboard = typeof navigator === 'undefined' ? null : navigator.clipboard;
+    if (!clipboard || typeof clipboard.writeText !== 'function') throw new Error('Text clipboard is unavailable.');
+    await clipboard.writeText(text);
+    if (view === target) target.appearanceCopyResult(text);
+  } catch (error) {
+    diagnostics.error('copy appearance', error);
+    if (view === target) target.appearanceCopyResult(text, error);
+  } finally { disable(false); }
+}
 async function report(destination) {
   if (uiBusy || runner.busy) return; disable(true);
   try {
@@ -80,7 +96,8 @@ function mount(root) {
     roots.add(root);
   }
   if (!view) view = createPanel(root.ownerDocument || document, registry.list(), draft, appearance, visibility, {
-    run: id => invoke(id, false), external, report: () => report('file'), copyReport: () => report('clipboard'), draft: capture, error: failure,
+    appearanceSaved: !preferences.problems().some(message => /appearance/.test(message)),
+    run: id => invoke(id, false), external, report: () => report('file'), copyReport: () => report('clipboard'), copyAppearance, draft: capture, error: failure,
     changed(scope) {
       try {
         capture();
@@ -93,7 +110,7 @@ function mount(root) {
     appearance(value) { appearance = value; try { preferences.saveAppearance(value); return true; } catch (e) { failure('appearance preferences', e); return false; } },
     order(value) { order = value; try { order = preferences.saveOrder(value); } catch (e) { failure('tool order preferences', e); } },
     settingsTab(value) { settingsTab = value; try { preferences.saveSettingsTab(value); } catch (e) { failure('settings navigation', e); } },
-    visibility(value) { visibility = value; try { preferences.saveVisibility(value); } catch (e) { failure('tool visibility preferences', e); } }
+    visibility(value) { visibility = value; try { preferences.saveVisibility(value); return true; } catch (e) { failure('tool visibility preferences', e); return false; } }
   }, product.displayVersion, order, settingsTab);
   if (view.root.parentNode !== root) root.appendChild(view.root);
   view.mount(root);

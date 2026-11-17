@@ -13,7 +13,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   const numberControls = {}, sizeControls = [];
   let appearance = { ...appearanceDraft }, visibility = { ...visibilityDraft };
   let arranger = null, settingsWindow = null, activeSettingsTab = 'view';
-  let statusText = null, statusState = null, externalState = null;
+  let statusText = null, statusState = null, externalState = null, appearanceState = handlers.appearanceSaved === false ? 'preview' : 'saved';
   function make(tag, text, attrs) {
     const el = doc.createElement(tag);
     if (text != null) el.textContent = text;
@@ -92,6 +92,8 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   const gear = control('settings', null, () => setOptions(!settingsWindow.isOpen()), 'pt-small', 'Settings', 'Open settings in a separate window.'); gear.appendChild(icon(doc, 'settings'));
   gear.setAttribute('aria-expanded', 'false'); gear.setAttribute('aria-controls', 'settingsDialog'); gear.setAttribute('aria-haspopup', 'dialog');
   append(utilities, [arrange, labelToggle, gear]); toolbar.appendChild(utilities); append(scroll, [toolbar, arrangeBar, ...sections]);
+  const empty = make('div', null, { id: 'emptyTools', class: 'pt-empty' });
+  empty.appendChild(make('p', 'No tools shown')); empty.appendChild(control('chooseTools', 'Choose buttons', () => { selectSettingsTab('tools'); setOptions(true); }, 'pt-text', 'Choose visible buttons')); scroll.appendChild(empty);
   const status = control('status', null, () => {
     details.hidden = !details.hidden; status.setAttribute('aria-expanded', String(!details.hidden));
   }, 'pt-status', 'Show operation details');
@@ -108,7 +110,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   bindingHints = settingsHints;
   const settingsPanels = {}, settingsTabs = {}, tabOrder = ['view', 'tools', 'export', 'help'];
   const closeSettings = control('settingsClose', 'Close', () => setOptions(false), 'pt-settings-close', 'Close settings');
-  const tabList = make('div', null, { class: 'pt-settings-tabs', role: 'tablist', 'aria-label': 'Settings sections' }); options.appendChild(tabList);
+  const tabList = make('div', null, { id: 'settingsTabs', class: 'pt-settings-tabs', role: 'tablist', 'aria-label': 'Settings sections' }); settingsRoot.appendChild(tabList); settingsRoot.appendChild(settingsScroll);
   for (const [id, label] of [['view', 'View'], ['tools', 'Buttons'], ['export', 'Actions'], ['help', 'Help']]) {
     const tab = control('tab-' + id, label, () => selectSettingsTab(id), 'pt-tab', label + ' settings');
     tab.setAttribute('role', 'tab'); tab.setAttribute('aria-controls', 'settings-' + id); tabList.appendChild(tab); settingsTabs[id] = tab;
@@ -129,14 +131,18 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     for (const name of tabOrder) { const selected = name === id; settingsPanels[name].hidden = !selected; settingsTabs[name].setAttribute('aria-selected', String(selected)); settingsTabs[name].setAttribute('tabindex', selected ? '0' : '-1'); }
     if (!initial && handlers.settingsTab) handlers.settingsTab(id);
   }
-  function heading(parent, text) { parent.appendChild(make('div', text, { class: 'pt-heading' })); }
-  function checkbox(id, text, checked, change, title) {
+  function settingsCard(parent, title, glyph) {
+    const card = make('div', null, { class: 'pt-settings-card' });
+    card.appendChild(append(make('div', null, { class: 'pt-card-title', role: 'heading', 'aria-level': '3' }), [icon(doc, glyph), make('span', title)]));
+    parent.appendChild(card); return card;
+  }
+  function checkbox(id, text, checked, change, title, glyph) {
     const input = make('input', null, { id, type: 'checkbox' }); input.checked = checked;
     input.addEventListener('change', change);
-    const label = append(make('label'), [input, make('span', text)]);
+    const label = append(make('label', null, glyph ? { class: 'pt-visibility-row' } : {}), glyph ? [icon(doc, glyph), make('span', text), input] : [input, make('span', text)]);
     hints.bind(label, () => ({ title: title || text }), input); return label;
   }
-  const settingsStatus = make('p', 'Changes save automatically', { id: 'settingsStatus', class: 'pt-settings-status', role: 'status', 'aria-live': 'polite' });
+  const settingsStatus = make('p', 'Changes save automatically', { id: 'settingsStatus', class: 'pt-settings-status', role: 'status', 'aria-live': 'polite', tabindex: '0' });
   const settingsFooter = append(make('div', null, { class: 'pt-settings-footer' }), [settingsStatus, closeSettings]); settingsRoot.appendChild(settingsFooter);
   function persistSetting(scope) {
     const saved = handlers.changed(scope);
@@ -158,29 +164,30 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     numberControls[id] = bindSlider(input, slider, { min, max, step, railMax, reset, preview, commit });
     return input;
   }
-  heading(settingsPanels.export, 'Expand Selection');
-  const expandPx = numberSetting('expandPx', 'Grow by', draft.expandPx ?? 8, 1, 500, 1, 'px', 8, 'selection', settingsPanels.export, null, null, 64);
-  settingsPanels.export.appendChild(make('p', 'Each click grows the current selection. 1–500 px.', { class: 'pt-hint' }));
-  heading(settingsPanels.export, 'Smart Area');
-  const smartAreaBlurPercent = numberSetting('smartAreaBlurPercent', 'Edge blur', draft.smartAreaBlurPercent ?? 5, 0, 100, 0.1, '%', 5, 'smart');
-  settingsPanels.export.appendChild(make('p', 'Of the shorter side. Baked once; Feather = 0. Radius up to 250 px.', { class: 'pt-hint' }));
-  heading(settingsPanels.export, 'PNG export');
-  settingsPanels.export.appendChild(checkbox('overwrite', 'Replace existing PNG', draft.overwrite, () => persistSetting('png')));
-  settingsPanels.export.appendChild(checkbox('srgb', 'Convert copy to sRGB', draft.srgb, () => persistSetting('png')));
-  const compression = numberSetting('compression', 'Compression', draft.compression, 0, 9, 1, 'level', 6, 'png');
-  settingsPanels.export.appendChild(make('p', 'Lossless · 0 fastest / 9 smallest.', { class: 'pt-hint' }));
+  const expandCard = settingsCard(settingsPanels.export, 'Expand Selection', 'expand');
+  const expandPx = numberSetting('expandPx', 'Grow by', draft.expandPx ?? 8, 1, 500, 1, 'px', 8, 'selection', expandCard, null, null, 64);
+  expandCard.appendChild(make('p', 'Grow the current selection · 1–500 px.', { class: 'pt-hint' }));
+  const smartCard = settingsCard(settingsPanels.export, 'Smart Area', 'selection');
+  const smartAreaBlurPercent = numberSetting('smartAreaBlurPercent', 'Edge blur', draft.smartAreaBlurPercent ?? 5, 0, 100, 0.1, '%', 5, 'smart', smartCard);
+  smartCard.appendChild(make('p', 'Of the shorter side · baked into an editable mask.', { class: 'pt-hint' }));
+  const pngCard = settingsCard(settingsPanels.export, 'PNG export', 'file');
+  pngCard.appendChild(checkbox('overwrite', 'Replace existing PNG', draft.overwrite, () => persistSetting('png')));
+  pngCard.appendChild(checkbox('srgb', 'Convert copy to sRGB', draft.srgb, () => persistSetting('png')));
+  const compression = numberSetting('compression', 'Compression', draft.compression, 0, 9, 1, 'level', 6, 'png', pngCard);
+  pngCard.appendChild(make('p', 'Always lossless · 0 fastest / 9 smallest.', { class: 'pt-hint' }));
   for (const group of groups.values()) {
-    heading(settingsPanels.tools, group.tools[0].group || 'Tools'); const list = make('div', null, { class: 'pt-tool-options' }); settingsPanels.tools.appendChild(list);
+    const card = settingsCard(settingsPanels.tools, group.tools[0].group || 'Tools', group.tools[0].compact ? 'smart' : 'labels'); const list = make('div', null, { class: 'pt-tool-options' }); card.appendChild(list);
     group.tools.forEach(tool => list.appendChild(checkbox('visible-' + tool.id, tool.label, isVisible(tool), () => {
-      visibility[tool.id] = elements['visible-' + tool.id].checked; updateVisibility(); handlers.visibility({ ...visibility });
-    }, tool.title)));
+      visibility[tool.id] = elements['visible-' + tool.id].checked; updateVisibility(); const saved = handlers.visibility({ ...visibility }); settingsStatus.textContent = saved === true ? 'Saved' : saved === false ? 'Not saved · see error details' : 'Visibility updated';
+    }, tool.title, tool.icon)));
   }
   settingsPanels.tools.appendChild(control('arrangeTools', 'Arrange buttons', () => { setOptions(false); arranger.setActive(true); }, 'pt-text', 'Arrange buttons'));
+  const viewCard = settingsCard(settingsPanels.view, 'Appearance', 'settings');
   function group(field, label, values) {
     const wrapper = make('div', null, { class: 'pt-setting-row' }); wrapper.appendChild(make('div', label, { class: 'pt-setting-name' }));
     const row = make('div', null, { class: 'pt-choice-group', role: 'group', 'aria-label': label });
     values.forEach(([value, text]) => { const id = field + '-' + value; const node = control(id, text, () => applyAppearance({ [field]: value }), 'pt-choice', text + ' ' + label.toLowerCase()); choices[id] = { node, field, value }; row.appendChild(node); });
-    wrapper.appendChild(row); settingsPanels.view.appendChild(wrapper);
+    wrapper.appendChild(row); viewCard.appendChild(wrapper);
   }
   group('size', 'Density', [['compact', 'Compact'], ['roomy', 'Roomy']]);
   const defaultHeight = () => appearance.size === 'roomy' ? 48 : 40;
@@ -191,15 +198,21 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     elements.buttonSize.removeAttribute('aria-invalid'); const saved = applyAppearance({ buttonSize: value === defaultHeight() ? undefined : value }, false, save);
     if (save) settingsStatus.textContent = saved === true ? 'Saved' : saved === false ? 'Not saved · see error details' : 'Size preview updated';
   }
-  numberSetting('buttonSize', 'Main button height', appearance.buttonSize ?? defaultHeight(), 36, 4096, 1, 'px', () => defaultHeight(), 'appearance', settingsPanels.view, value => setHeight(value, false), value => setHeight(value, true), 96);
+  numberSetting('buttonSize', 'Main button height', appearance.buttonSize ?? defaultHeight(), 36, 4096, 1, 'px', () => defaultHeight(), 'appearance', viewCard, value => setHeight(value, false), value => setHeight(value, true), 96);
   sizeControls.push('buttonSize');
   group('corners', 'Corners', [['square', 'Square'], ['soft', 'Rounded']]);
   group('theme', 'Theme', [['host', 'Auto'], ['dark', 'Dark'], ['light', 'Light']]);
-  settingsPanels.view.appendChild(checkbox('appearance-labels', 'Button labels', appearance.labels, () => applyAppearance({ labels: elements['appearance-labels'].checked })));
+  viewCard.appendChild(checkbox('appearance-labels', 'Button labels', appearance.labels, () => applyAppearance({ labels: elements['appearance-labels'].checked })));
+  const appearanceActions = make('div', null, { class: 'pt-report-actions' });
+  appearanceActions.appendChild(control('copyAppearance', 'Copy appearance', () => handlers.copyAppearance && handlers.copyAppearance(), 'pt-text', 'Copy appearance')); settingsPanels.view.appendChild(appearanceActions);
+  settingsPanels.view.appendChild(make('p', 'Copy layout as JSON · replaces the image clipboard.', { class: 'pt-hint' }));
+  const appearanceText = make('textarea', null, { id: 'appearanceText', readonly: '', 'aria-label': 'Appearance JSON · select and copy', class: 'pt-appearance-text' }); appearanceText.hidden = true; settingsPanels.view.appendChild(appearanceText);
   settingsPanels.help.appendChild(make('p', 'Photoshop Tool ' + version + ' · Made by Nasaat', { class: 'pt-hint' }));
+  const helpCard = settingsCard(settingsPanels.help, 'Diagnostics', 'report');
+  helpCard.appendChild(make('p', 'Copy replaces the image clipboard. Save .txt keeps it.', { class: 'pt-hint' }));
   const reportActions = make('div', null, { class: 'pt-report-actions' });
   append(reportActions, [control('copyReportHelp', 'Copy report', handlers.copyReport, 'pt-text', 'Copy report'), control('report', 'Save .txt', handlers.report, 'pt-text', 'Save report')]);
-  settingsPanels.help.appendChild(reportActions);
+  helpCard.appendChild(reportActions);
   const help = make('div', null, { id: 'help' }); help.hidden = true;
   const helpButton = control('helpToggle', 'Tool guide', () => { help.hidden = !help.hidden; helpButton.setAttribute('aria-expanded', String(!help.hidden)); }, 'pt-text', 'Help and diagnostics', 'Show tool instructions, limitations and Copy/Save report actions.'); helpButton.setAttribute('aria-expanded', 'false');
   append(settingsPanels.help, [helpButton, help]);
@@ -224,7 +237,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
   ].forEach(text => help.appendChild(make('p', text, { class: 'pt-hint' })));
   const footer = append(make('div', null, { class: 'pt-footer' }), [make('span', 'Made by Nasaat'), make('span', 'v' + version, { class: 'pt-version' })]); root.appendChild(footer);
   const viewport = createViewport(doc, scroll, footer);
-  const settingsViewport = createViewport(doc, settingsScroll, settingsFooter);
+  const settingsViewport = createViewport(doc, settingsScroll, settingsFooter, { header: tabList });
   settingsWindow = createSettingsWindow(dialog, options, gear, settingsViewport, {
     opening() { hints.dismiss(); arranger.setActive(false); focus.clear(); },
     closed(reason) { hints.dismiss(); focus.clear(); if (reason === 'close' && focus.keyboard() && gear.focus) gear.focus(); },
@@ -248,7 +261,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     hints.dismiss(); if (arranger) arranger.cancel();
     let count = 0;
     tools.forEach(tool => { const visible = isVisible(tool); toolNodes[tool.id].hidden = !visible; if (visible) count++; });
-    root.setAttribute('data-tool-layout', count > 3 ? 'grid' : 'row');
+    root.setAttribute('data-tool-layout', count > 3 ? 'grid' : 'row'); empty.hidden = count !== 0;
     for (const group of groups.values()) {
       const visible = group.tools.filter(isVisible).length;
       group.section.hidden = visible === 0;
@@ -264,7 +277,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     const sizeRule = '#photoshoptool.pt-root {--size:' + pixels + 'px;}';
     if (sizing.textContent !== sizeRule) sizing.textContent = sizeRule;
     if (initial || patch.size || Object.prototype.hasOwnProperty.call(patch, 'buttonSize')) {
-      if (elements.buttonSize) { elements.buttonSize.value = String(pixels); numberControls.buttonSize.sync(pixels, !!patch.size); }
+      if (elements.buttonSize) { elements.buttonSize.value = String(pixels); elements.buttonSize.removeAttribute('aria-invalid'); numberControls.buttonSize.sync(pixels, !!patch.size); }
     }
     const className = 'pt-root pt-' + appearance.theme + (appearance.labels ? ' pt-labels' : '') + (appearance.size === 'roomy' ? ' pt-roomy' : '') + (appearance.corners === 'soft' ? ' pt-soft' : '');
     if (root.className !== className) root.className = className;
@@ -273,10 +286,27 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     labelToggle.setAttribute('aria-pressed', String(appearance.labels));
     labelToggle.setAttribute('aria-label', appearance.labels ? 'Hide button labels' : 'Show button labels');
     for (const choice of Object.values(choices)) choice.node.setAttribute('aria-pressed', String(appearance[choice.field] === choice.value));
-    if (!initial && save) return handlers.appearance({ ...appearance });
+    if (!initial) {
+      appearanceState = 'preview';
+      if (save) {
+        const saved = handlers.appearance({ ...appearance });
+        if (saved === true) appearanceState = 'saved';
+        settingsStatus.textContent = saved === true ? 'Saved' : saved === false ? 'Not saved · see error details' : 'Preview · not saved';
+        return saved;
+      }
+    }
   }
   selectSettingsTab(settingsTabDraft, true); updateVisibility(); applyAppearance({}, true);
   return { root, elements, mount: viewport.mount, settingsOpen: settingsWindow.isOpen, dismissHints() { hints.dismiss('panel-hidden'); arranger.cancel(); settingsWindow.close(); }, tooltipReport: hints.report, settingsTab: () => activeSettingsTab, scrollReport: () => ({ layout: viewport.report(), height: scroll.clientHeight, contentHeight: scroll.scrollHeight, top: scroll.scrollTop, settings: settingsWindow.report() }), order: arranger.order, dispose() { viewport.destroy(); settingsWindow.destroy(); arranger.destroy(); hints.destroy(); focus.destroy(); }, appearance: () => ({ ...appearance }), visibility: () => ({ ...visibility }),
+    appearanceExport() {
+      const raw = String(elements.buttonSize.value).trim(), value = Number(raw);
+      if (!raw || !Number.isInteger(value) || value < 36 || value > 4096) throw new Error('Fix the main button height before copying appearance.');
+      return { appearance: { ...appearance }, state: appearanceState };
+    },
+    appearanceCopyResult(text, error) {
+      appearanceText.value = text || ''; appearanceText.hidden = !error || !text;
+      settingsStatus.textContent = error ? 'Not copied: ' + String(error.message || error) + (text ? ' Select the JSON below.' : '') : 'Appearance copied · paste with Ctrl+V';
+    },
     values: () => ({ overwrite: elements.overwrite.checked, srgb: elements.srgb.checked, compression: String(compression.value), smartAreaBlurPercent: String(smartAreaBlurPercent.value), expandPx: String(expandPx.value) }),
     reportStatus(text) { elements.reportStatus.textContent = text; elements.reportStatus.hidden = !text; if (settingsWindow.isOpen()) settingsStatus.textContent = text; },
     status(text, state, needsExternal) {
@@ -293,7 +323,7 @@ function createPanel(doc, tools, draft, appearanceDraft, visibilityDraft, handle
     disable(value) {
       if (value) { hints.dismiss(); if (arranger.active) arranger.setActive(false); }
       root.setAttribute('aria-busy', String(value));
-      [...tools.map(t => t.id), 'external', 'report', 'copyReport', 'copyReportHelp', 'arrange', 'arrangeDone', 'arrangeReset', 'arrangeTools', 'settings'].forEach(id => controls[id](value));
+      [...tools.map(t => t.id), 'external', 'report', 'copyReport', 'copyReportHelp', 'arrange', 'arrangeDone', 'arrangeReset', 'arrangeTools', 'settings', 'chooseTools', 'copyAppearance'].forEach(id => controls[id](value));
       for (const id of ['overwrite', 'srgb', 'compression', 'smartAreaBlurPercent', 'expandPx']) if (elements[id].disabled !== value) elements[id].disabled = value;
       for (const id of ['compression', 'smartAreaBlurPercent', 'expandPx']) controls['reset-' + id](value);
       for (const [id, field] of Object.entries(numberControls)) { field.disable(value); if (sizeControls.includes(id)) { elements[id].disabled = value; controls['reset-' + id](value); } }

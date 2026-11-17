@@ -1,4 +1,5 @@
-Expand icon source: https://github.com/lucide-icons/lucide/blob/main/icons/expand.svg
+Bundled icons: Lucide, https://github.com/lucide-icons/lucide
+Exact selected names and source commit: ui/icon-data.json in CCX (plugin/ui/icon-data.json in source).
 
 ISC License
 

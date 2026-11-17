@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.9 (native 1.9.0)
+
+- Replace mixed tool/utility glyphs with a pinned, bundled Lucide outline family. Fill Current Layer uses Scaling, Smart Area uses Scan and Expand Selection uses Expand; retain persistent PNG/PSD labels and all command IDs. Keep applicable ISC/Feather notices in the CCX.
+- Refine neutral button surfaces, borders, radii, hover/focus/disabled states and section rhythm; preserve four-column wrapping, compact Layers and explicit appearance overrides. Add Choose buttons recovery when every tool is hidden.
+- Keep native settings tabs above their scroll viewport. Group action parameters and appearance controls, align icon/name/visibility rows, retain native sliders/exact inputs/scoped resets/drafts/last tab. Observe footer/tab wrapping so feedback cannot silently displace Close; prefer clientHeight to content-box resize hints.
+- Add Copy appearance with safe versioned local-preview JSON, units, override/persistence semantics, invalid-draft validation and a selectable fallback on clipboard denial. No document data, paths, clipboard reads, network or new permissions. Show Saved for appearance/visibility only after acknowledged storage.
+- Retain workflows, plugin identity, settings and issued installers. Regression checks cover export, empty-panel recovery and viewport changes alongside existing host mocks. SVG assets were inspected separately; live browser preview was policy-blocked and native Photoshop rendering/execution remains unverified.
+
 ## 1.8 (native 1.8.0)
 
 - Move settings to one native resizable UXP dialog with independent scrolling, theme, name-only hints and a Close/status footer. Retain controls, drafts, last tab and main panel scroll; handle Close, Escape, titlebar dismissal, reopen, stale completion, errors and teardown. Block plugin document commands while settings are open.

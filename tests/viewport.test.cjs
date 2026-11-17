@@ -33,6 +33,17 @@ test('observer failure preserves the normal-flow fallback and is visible in diag
 });
 test('repeated show reuses one observer and one pending layout pass', () => {
   const f = fixture(); for (let i = 0; i < 30; i++) f.viewport.mount(f.host);
-  assert.equal(f.observed(), 1); assert.equal(f.tasks.size, 1); assert.equal(f.doc.defaultView.listeners.resize.length, 1);
+  assert.equal(f.observed(), 2); assert.equal(f.tasks.size, 1); assert.equal(f.doc.defaultView.listeners.resize.length, 1);
   f.viewport.destroy(); assert.equal(f.disconnected(), 1); f.resize(300); assert.equal(f.scroll.style.height, '139px');
+});
+test('settings reserve normal-flow tabs/footer and react when feedback wraps without host resizing', () => {
+  const doc = makeDocument(), host = doc.createElement('div'), scroll = doc.createElement('div'), footer = doc.createElement('div'), header = doc.createElement('div');
+  host.clientHeight = 260; header.rect = { height: 37 }; footer.rect = { height: 36 }; let notify; const observed = [];
+  class Observer { constructor(fn) { notify = fn; } observe(node) { observed.push(node); } disconnect() {} }
+  const v = createViewport(doc, scroll, footer, { Observer, header }); v.mount(host);
+  assert.deepEqual(observed, [host, footer, header]); assert.equal(scroll.style.height, '171px');
+  footer.rect.height = 64; notify([{ target: footer, contentRect: { height: 64 } }]); assert.equal(scroll.style.height, '143px');
+  notify([{ target: host, contentRect: { height: 244 } }]); assert.equal(scroll.style.height, '143px', 'clientHeight includes padding; a content-box observation must not subtract it twice');
+  header.rect.height = 67; notify([{ target: header, contentRect: { height: 67 } }]); assert.equal(scroll.style.height, '113px');
+  v.destroy(); notify([{ target: footer }]); assert.equal(scroll.style.height, '113px');
 });

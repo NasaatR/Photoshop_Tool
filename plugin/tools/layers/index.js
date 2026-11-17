@@ -1,6 +1,6 @@
 'use strict';
 const definitions = [
-  ['layers.fill-current', 'fillCurrentLayer', 'Fill Current Layer', 'Fill Layer', 'selection', 'Scale one selected layer proportionally to cover the full canvas and center it. Overflow stays outside the canvas. No rasterizing or canvas resize.', 'fill'],
+  ['layers.fill-current', 'fillCurrentLayer', 'Fill Current Layer', 'Fill Layer', 'fill', 'Scale one selected layer proportionally to cover the full canvas and center it. Overflow stays outside the canvas. No rasterizing or canvas resize.', 'fill'],
   ['layers.smart-object', 'convertSmartObject', 'Convert to Smart Object', 'Smart Object', 'smart', 'Convert selected layers to a Smart Object. With no selected layer, stamp the full visible composition first.', 'smart'],
   ['layers.camera-raw', 'smartCameraRaw', 'Smart Object + Camera Raw', 'Camera Raw', 'camera', 'Convert selected layers to a Smart Object and open Camera Raw as a Smart Filter. With no layer selected, stamp visible layers first.', 'camera'],
   ['layers.black-mask', 'addBlackMask', 'Black Mask / Invert', 'Mask', 'mask', 'Add a black pixel mask, or invert the existing mask on the selected layer.', 'mask'],

@@ -362,3 +362,40 @@ test('native settings failure is diagnosable and running tools are blocked while
   assert.match(find(good.root, 'settingsStatus').textContent, /Report copied/);
   f.setup.panels.relayPanel.destroy(); good.setup.panels.relayPanel.destroy();
 });
+
+test('Fill, Smart Area and Expand have distinct authored glyphs; all tools use the same bundled icon family', () => {
+  const { view } = panel(), data = require('../plugin/ui/icon-data.json');
+  assert.equal(view.elements['layers.fill-current'].children[0].getAttribute('data-icon'), 'scaling');
+  assert.equal(view.elements['png.selection-smart'].children[0].getAttribute('data-icon'), 'scan');
+  assert.equal(view.elements['selection.expand'].children[0].getAttribute('data-icon'), 'expand');
+  assert.equal(data.family, 'Lucide'); assert.match(data.sourceCommit, /^[a-f0-9]{40}$/);
+  for (const tool of registry.list()) assert.ok(data.icons[tool.icon], tool.id);
+  view.dispose();
+});
+test('settings tabs stay outside content scroll; the empty panel provides a route back to visibility', async () => {
+  const { view } = panel(), e = view.elements;
+  assert.equal(e.settingsTabs.parentNode, e['photoshoptool-settings']); assert.notEqual(e.settingsTabs.parentNode, e.options);
+  for (const t of registry.list()) { e['visible-' + t.id].checked = false; await e['visible-' + t.id].fire('change'); }
+  assert.equal(e.emptyTools.hidden, false); await e.chooseTools.fire('click'); assert.equal(view.settingsOpen(), true); assert.equal(view.settingsTab(), 'tools');
+  e['visible-png.copy-only'].checked = true; await e['visible-png.copy-only'].fire('change'); assert.equal(e.emptyTools.hidden, true);
+  view.dispose();
+});
+test('appearance preview/save status and export preserve drafts and recover invalid height through density presets', async () => {
+  let succeed = false; const { view } = panel({ appearance() { return succeed; } }), e = view.elements;
+  e.compression.value = ''; e.buttonSize.value = '64'; await e.buttonSize.fire('input'); assert.equal(view.appearanceExport().state, 'preview');
+  await e.buttonSize.fire('change'); assert.equal(view.appearanceExport().state, 'preview'); assert.match(e.settingsStatus.textContent, /Not saved/);
+  succeed = true; await e['theme-light'].fire('click'); assert.equal(view.appearanceExport().state, 'saved'); assert.equal(e.settingsStatus.textContent, 'Saved');
+  e.buttonSize.value = ''; await e.buttonSize.fire('input'); assert.throws(() => view.appearanceExport(), /Fix.*height/);
+  await e['size-roomy'].fire('click'); assert.equal(e.buttonSize.getAttribute('aria-invalid'), null); assert.equal(view.appearanceExport().appearance.buttonSize, undefined); assert.equal(e.compression.value, '');
+  view.dispose();
+});
+test('Copy appearance exports the current safe preview; clipboard denial exposes selectable JSON and never claims copied', async () => {
+  const f = mainFixture(); f.setup.panels.relayPanel.create(f.root); const height = find(f.root, 'buttonSize');
+  height.value = '72'; await height.fire('input'); await find(f.root, 'copyAppearance').fire('click');
+  const snapshot = f.copied(); assert.equal(snapshot.schema, 1); assert.equal(snapshot.snapshot, 'current-preview'); assert.equal(snapshot.persistence, 'unsaved'); assert.equal(snapshot.appearance.buttonSize, 72);
+  assert.equal(snapshot.tools, undefined); assert.equal(snapshot.environment, undefined); assert.equal(find(f.root, 'appearanceText').hidden, true); assert.match(find(f.root, 'settingsStatus').textContent, /Appearance copied/);
+  const denied = mainFixture({ copy: true }); denied.setup.panels.relayPanel.create(denied.root); await find(denied.root, 'copyAppearance').fire('click');
+  assert.equal(find(denied.root, 'appearanceText').hidden, false); assert.equal(JSON.parse(find(denied.root, 'appearanceText').value).product, 'Photoshop Tool'); assert.match(find(denied.root, 'settingsStatus').textContent, /Not copied: Clipboard busy/);
+  const n = denied.clipboardWrites(); find(denied.root, 'buttonSize').value = ''; await find(denied.root, 'copyAppearance').fire('click'); assert.equal(denied.clipboardWrites(), n); assert.equal(find(denied.root, 'appearanceText').hidden, true);
+  f.setup.panels.relayPanel.destroy(); denied.setup.panels.relayPanel.destroy();
+});
